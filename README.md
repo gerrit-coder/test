@@ -15,29 +15,29 @@ Configure the test environment using these environment variables:
 
 ## Quick Start
 
-1. **Set environment variables (optional):**
+1. **Automated setup (recommended):**
    ```bash
+   ./run.sh
+   ```
+
+2. **Manual setup (step by step):**
+   ```bash
+   # Set environment variables (optional)
    export GERRIT_URL="http://your-gerrit-server:8080"
    export CODER_PORT="3000"
    export CODER_SESSION_TOKEN="your-coder-token"
-   ```
 
-2. **Start Coder server with CORS configuration:**
-   ```bash
+   # Start Coder server with CORS configuration
    ./coder.sh
-   ```
 
-3. **Configure CORS for Gerrit integration:**
-   ```bash
+   # Configure CORS for Gerrit integration
    ./setup-cors.sh
-   ```
 
-4. **Deploy the VS Code template:**
-   ```bash
+   # Deploy the VS Code template
    ./template.sh
    ```
 
-5. **Configure Gerrit plugin** with:
+3. **Configure Gerrit plugin** with:
    ```ini
    [plugin "coder-workspace"]
      enabled = true
@@ -52,14 +52,18 @@ Configure the test environment using these environment variables:
 
 ### Core Scripts
 
+- **`run.sh`** - Automated complete setup script (recommended)
 - **`coder.sh`** - Starts Coder server with Docker, includes CORS configuration
 - **`setup-cors.sh`** - Configures CORS settings for Gerrit integration
 - **`template.sh`** - Deploys the VS Code template to Coder
+- **`test-cors.sh`** - Tests CORS configuration
+- **`load-env.sh`** - Loads environment variables from .env file
 
 ### Configuration Files
 
 - **`coder.yaml`** - Coder server configuration with CORS settings
 - **`code-server.tf`** - Terraform template for VS Code workspace
+- **`env.example`** - Environment variables template
 
 ## Detailed Setup
 
@@ -86,7 +90,7 @@ The `setup-cors.sh` script handles CORS setup:
 - ✅ Updates CORS configuration with Gerrit URL
 - ✅ Applies configuration and restarts Coder
 - ✅ Tests CORS preflight requests
-- ✅ Verifies API accessibility
+- ✅ Verifies API accessibility (accepts HTTP 401 as valid response)
 
 **CORS Settings:**
 ```yaml
@@ -110,7 +114,8 @@ The `template.sh` script deploys a VS Code workspace template:
 - ✅ Copies Terraform template to container
 - ✅ Authenticates with Coder CLI
 - ✅ Pushes template with proper configuration
-- ✅ Handles token authentication
+- ✅ Handles token authentication gracefully
+- ✅ Skips deployment if no token provided (with helpful message)
 
 ## Troubleshooting
 
@@ -125,7 +130,7 @@ curl -H "Origin: ${GERRIT_URL:-http://127.0.0.1:8080}" \
      http://127.0.0.1:${CODER_PORT:-3000}/api/v2/templates
 ```
 
-**Expected response:** HTTP 200 with CORS headers
+**Expected response:** HTTP 200 with CORS headers (or HTTP 401 if not authenticated)
 
 ### Container Issues
 
@@ -139,6 +144,23 @@ docker logs coder-server
 # Restart Coder
 docker restart coder-server
 ```
+
+### Startup Issues
+
+If Coder fails to start or respond:
+
+```bash
+# Check if Coder is responding (HTTP 401 is normal for unauthenticated requests)
+curl -v http://127.0.0.1:3000/api/v2/templates
+
+# Check container logs for errors
+docker logs coder-server --tail 50
+
+# Restart Coder if needed
+docker restart coder-server
+```
+
+**Note:** HTTP 401 (Unauthorized) responses are expected and indicate Coder is running correctly but requires authentication.
 
 ### Template Issues
 
@@ -190,6 +212,10 @@ http:
 
 1. **Start test environment:**
    ```bash
+   # Automated (recommended)
+   ./run.sh
+
+   # Or manual step by step
    ./coder.sh
    ./setup-cors.sh
    ./template.sh
