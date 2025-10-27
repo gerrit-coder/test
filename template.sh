@@ -4,9 +4,10 @@ set -euo pipefail
 
 # Configurable settings
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CODER_URL=${CODER_URL:-http://127.0.0.1:3000}
+CODER_PORT=${CODER_PORT:-3000}
+CODER_URL=${CODER_URL:-http://127.0.0.1:$CODER_PORT}
 CODER_TEMPLATE_NAME=${CODER_TEMPLATE_NAME:-vscode-web}
-CODER_TOKEN=J7l4IfkmGC-zJAjKEhClVaAMjneKVrQff
+CODER_TOKEN=${CODER_TOKEN:-}
 CODER_TOKEN_VALUE=${CODER_SESSION_TOKEN:-${CODER_TOKEN:-}}
 
 # Prepare a clean template directory in the container

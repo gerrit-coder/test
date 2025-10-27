@@ -1,0 +1,54 @@
+# Coder configuration file with CORS settings for Gerrit integration
+# This file configures Coder to allow cross-origin requests from Gerrit
+#
+# Environment variables:
+#   GERRIT_URL - Gerrit server URL (default: http://127.0.0.1:8080)
+#   CODER_PORT - Coder server port (default: 3000)
+
+# HTTP server configuration
+http:
+  # Enable CORS for cross-origin requests
+  cors:
+    # Allow requests from Gerrit server
+    allow_origins:
+      - "${GERRIT_URL:-http://127.0.0.1:8080}"  # Gerrit server URL
+      - "http://127.0.0.1:8080"    # Local development fallback
+    # Allow necessary HTTP methods
+    allow_methods:
+      - GET
+      - POST
+      - DELETE
+      - OPTIONS
+    # Allow required headers
+    allow_headers:
+      - Content-Type
+      - Coder-Session-Token
+      - Authorization
+    # Allow credentials if needed
+    allow_credentials: true
+
+# Server configuration
+server:
+  # Bind to all interfaces to allow external access
+  bind_address: "0.0.0.0:${CODER_PORT:-3000}"
+
+# Security settings
+security:
+  # Allow insecure connections for development
+  # In production, use proper TLS certificates
+  allow_insecure_cookies: true
+
+# Logging configuration
+log:
+  level: "info"
+  format: "json"
+
+# Database configuration (if using external database)
+# database:
+#   url: "postgres://user:password@localhost:5432/coder"
+
+# OIDC configuration (if using external auth)
+# oidc:
+#   client_id: "your-client-id"
+#   client_secret: "your-client-secret"
+#   issuer_url: "https://your-oidc-provider.com"
