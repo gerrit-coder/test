@@ -64,18 +64,20 @@ apply_cors_config() {
     local attempt=1
 
     while [ $attempt -le $max_attempts ]; do
-        if curl -s -f "http://localhost:$CODER_PORT/api/v2/templates" > /dev/null 2>&1; then
-            echo "✅ Coder is responding successfully"
+        # Check if Coder is responding (401 is expected for unauthenticated requests)
+        local response_code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$CODER_PORT/api/v2/templates")
+        if [ "$response_code" = "200" ] || [ "$response_code" = "401" ]; then
+            echo "✅ Coder is responding successfully (HTTP $response_code)"
             break
         fi
 
         if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Coder failed to start after $max_attempts attempts"
+            echo "❌ Coder failed to start after $max_attempts attempts (last response: HTTP $response_code)"
             echo "   Check logs with: docker logs $CODER_CONTAINER_NAME"
             exit 1
         fi
 
-        echo "⏳ Attempt $attempt/$max_attempts: Waiting for Coder..."
+        echo "⏳ Attempt $attempt/$max_attempts: Waiting for Coder... (response: HTTP $response_code)"
         sleep 2
         attempt=$((attempt + 1))
     done

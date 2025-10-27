@@ -10,6 +10,17 @@ CODER_TEMPLATE_NAME=${CODER_TEMPLATE_NAME:-vscode-web}
 CODER_TOKEN=${CODER_TOKEN:-}
 CODER_TOKEN_VALUE=${CODER_SESSION_TOKEN:-${CODER_TOKEN:-}}
 
+# Check if token is provided
+if [ -z "$CODER_TOKEN_VALUE" ]; then
+    echo "⚠️  No CODER_SESSION_TOKEN provided. Skipping template deployment."
+    echo "   To deploy templates, set CODER_SESSION_TOKEN environment variable:"
+    echo "   export CODER_SESSION_TOKEN=\"your-coder-session-token\""
+    echo "   Then run: ./template.sh"
+    exit 0
+fi
+
+echo "🚀 Deploying template '$CODER_TEMPLATE_NAME' to Coder..."
+
 # Prepare a clean template directory in the container
 docker exec coder-server rm -rf /tmp/template && docker exec coder-server mkdir -p /tmp/template
 
