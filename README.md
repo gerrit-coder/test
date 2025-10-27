@@ -15,6 +15,7 @@ Configure the test environment using these environment variables:
 
 ## Quick Start
 
+1. **Start Coder server**
 ```bash
 # Set environment variables
 # Or Load environment variables from .env file
@@ -33,7 +34,7 @@ export CODER_SESSION_TOKEN="your-coder-token"
 ./template.sh
 ```
 
-**Configure Gerrit plugin** with:
+2. **Configure Gerrit plugin**
 ```ini
 [plugin "coder-workspace"]
   enabled = true
