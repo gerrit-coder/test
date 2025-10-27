@@ -15,38 +15,34 @@ Configure the test environment using these environment variables:
 
 ## Quick Start
 
-1. **Automated setup (recommended):**
-   ```bash
-   ./run.sh
-   ```
+```bash
+# Set environment variables
+# Or Load environment variables from .env file
+# source ./load-env.sh
+export GERRIT_URL="http://your-gerrit-server:8080"
+export CODER_PORT="3000"
+export CODER_SESSION_TOKEN="your-coder-token"
 
-2. **Manual setup (step by step):**
-   ```bash
-   # Set environment variables (optional)
-   export GERRIT_URL="http://your-gerrit-server:8080"
-   export CODER_PORT="3000"
-   export CODER_SESSION_TOKEN="your-coder-token"
+# Start Coder server with CORS configuration
+./coder.sh
 
-   # Start Coder server with CORS configuration
-   ./coder.sh
+# Configure CORS for Gerrit integration
+./setup-cors.sh
 
-   # Configure CORS for Gerrit integration
-   ./setup-cors.sh
+# Deploy the VS Code template
+./template.sh
+```
 
-   # Deploy the VS Code template
-   ./template.sh
-   ```
-
-3. **Configure Gerrit plugin** with:
-   ```ini
-   [plugin "coder-workspace"]
-     enabled = true
-     serverUrl = http://127.0.0.1:3000
-     apiKey = YOUR_CODER_SESSION_TOKEN
-     templateId = YOUR_TEMPLATE_ID
-     organization = YOUR_ORGANIZATION_ID
-     user = YOUR_USERNAME
-   ```
+**Configure Gerrit plugin** with:
+```ini
+[plugin "coder-workspace"]
+  enabled = true
+  serverUrl = http://127.0.0.1:3000
+  apiKey = YOUR_CODER_SESSION_TOKEN
+  templateId = YOUR_TEMPLATE_ID
+  organization = YOUR_ORGANIZATION_ID
+  user = YOUR_USERNAME
+```
 
 ## Files Overview
 
