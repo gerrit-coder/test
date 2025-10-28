@@ -8,7 +8,7 @@ set -euo pipefail
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CODER_CONFIG_FILE="$SCRIPT_DIR/coder.yaml"
-CODER_CONTAINER_NAME="coder-server"
+CODER_CONTAINER_NAME="${CODER_CONTAINER_NAME:-coder-server}"
 GERRIT_URL="${GERRIT_URL:-http://127.0.0.1:8080}"
 CODER_PORT="${CODER_PORT:-3000}"
 
@@ -16,7 +16,8 @@ echo "🔧 Setting up Coder CORS configuration for Gerrit integration..."
 
 # Function to check if Coder container is running
 check_coder_running() {
-    if ! docker ps --format "table {{.Names}}" | grep -q "^${CODER_CONTAINER_NAME}$"; then
+    # Prefer docker inspect for reliable running state
+    if ! docker inspect -f '{{.State.Running}}' "$CODER_CONTAINER_NAME" 2>/dev/null | grep -q true; then
         echo "❌ Coder container '$CODER_CONTAINER_NAME' is not running."
         echo "   Please start Coder first using: ./coder.sh"
         exit 1

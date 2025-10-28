@@ -17,8 +17,25 @@ echo "📋 Converting environment variables to Terraform configuration..."
 echo "🐳 Starting Coder server..."
 ./coder.sh
 
-# Step 4: Setup CORS configuration
+# Step 4: Setup CORS configuration (wait until Coder API is ready)
 echo "🔧 Setting up CORS configuration..."
+
+# Wait until Coder responds (200/401) to avoid "container not running" races
+attempt=0
+until code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${CODER_PORT:-3000}/api/v2/templates"); do
+  :
+done
+while ! echo "$code" | grep -qE '^(200|401)$'; do
+  if [ $attempt -gt 30 ]; then
+    echo "❌ Coder did not become ready in time (last HTTP $code)" >&2
+    break
+  fi
+  attempt=$((attempt+1))
+  echo "⏳ Waiting for Coder API (HTTP $code)..."
+  sleep 2
+  code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${CODER_PORT:-3000}/api/v2/templates")
+done
+
 ./setup-cors.sh
 
 # Step 5: Deploy template with Terraform

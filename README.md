@@ -166,6 +166,7 @@ The `setup-cors.sh` script handles CORS setup:
 
 **Features:**
 - ✅ Validates Coder container is running
+- ✅ Uses reliable docker inspect-based running check
 - ✅ Updates CORS configuration with `GERRIT_URL` from environment
 - ✅ Applies configuration and restarts Coder
 - ✅ Tests CORS preflight requests
@@ -195,6 +196,7 @@ The `code-server.tf` file includes:
 - Environment variable support for all CORS settings
 - Docker container configuration with proper environment variables
 - Flexible configuration via Terraform variables
+- Fixed Docker command to ensure workspace container starts reliably
 
 **Terraform Variables:**
 - `coder_cors_allow_origins` - Uses `GERRIT_URL` from environment
