@@ -126,5 +126,12 @@ resource "docker_container" "workspace" {
     "CODER_SESSION_TOKEN=${var.coder_session_token}"
   ]
 
-  command = ["sh", "-c", coder_agent.main.init_script]
+  command = ["sh", "-c", <<-EOT
+    #!/bin/sh
+    set -x
+    curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone
+    nohup /home/coder/.local/bin/code-server --auth none --port 13337 > /tmp/code-server.log 2>&1 &
+    sleep 2
+  EOT
+  ]
 }
