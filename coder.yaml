@@ -24,8 +24,11 @@ http:
       - Content-Type
       - Coder-Session-Token
       - Authorization
+      - Accept
     # Allow credentials if needed
     allow_credentials: true
+    # Explicitly enable CORS
+    enabled: true
 
 # Server configuration
 server:
