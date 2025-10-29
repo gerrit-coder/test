@@ -63,10 +63,30 @@ resource "coder_agent" "main" {
   os             = "linux"
   startup_script = <<-EOT
     #!/bin/sh
-    set -x
-    curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone
-    nohup /home/coder/.local/bin/code-server --auth none --port 13337 > /tmp/code-server.log 2>&1 &
-    sleep 2
+    set -e
+
+    # Install code-server if not already installed
+    if [ ! -f /home/coder/.local/bin/code-server ]; then
+      echo "Installing code-server..."
+      curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone
+    else
+      echo "code-server already installed"
+    fi
+
+    # Start code-server in background
+    echo "Starting code-server on port 13337..."
+    nohup /home/coder/.local/bin/code-server --auth none --port 13337 --bind-addr 0.0.0.0:13337 > /tmp/code-server.log 2>&1 &
+
+    # Wait a moment for code-server to start
+    sleep 3
+
+    # Verify code-server is running
+    if pgrep -f "code-server" > /dev/null; then
+      echo "code-server started successfully"
+    else
+      echo "Failed to start code-server"
+      cat /tmp/code-server.log
+    fi
   EOT
 }
 
@@ -98,14 +118,8 @@ resource "docker_container" "workspace" {
     "CODER_SESSION_TOKEN=${var.coder_session_token}"
   ]
 
-  command = ["sh", "-c", <<-EOT
-    #!/bin/sh
-    set -x
-    curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone
-    nohup /home/coder/.local/bin/code-server --auth none --port 13337 > /tmp/code-server.log 2>&1 &
-    sleep 2
-  EOT
-  ]
+  # Let the Coder agent handle the startup script
+  command = ["sh", "-c", "sleep infinity"]
 
   lifecycle {
     create_before_destroy = true
