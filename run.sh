@@ -3,6 +3,17 @@
 ## Load environment variables
 source ./load-env.sh
 
+# Check if .env file exists, if not, create one from template
+if [ ! -f ".env" ]; then
+    echo "📋 Creating .env file from env.example template..."
+    cp env.example .env
+    echo "✅ Created .env file. Please edit it with your configuration."
+    echo "   Important: Set CODER_SESSION_TOKEN in .env for template deployment"
+    echo ""
+    echo "   Edit .env file now, then press Enter to continue..."
+    read -r
+fi
+
 echo "🚀 Starting complete Coder-Gerrit integration setup..."
 
 # Step 1: Apply environment variables to YAML files
@@ -36,40 +47,31 @@ while ! echo "$code" | grep -qE '^(200|401)$'; do
   code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${CODER_PORT:-3000}/api/v2/templates")
 done
 
-# Step 5: Deploy template with Terraform
-echo "🏗️ Deploying template with Terraform..."
-if [ -f "terraform.tfvars" ]; then
-    echo "📋 Using terraform.tfvars for configuration..."
-    if command -v terraform >/dev/null 2>&1; then
-        terraform init
-        terraform plan
-        terraform apply -auto-approve
-    else
-        echo "⚠️  Terraform not found. Installing Terraform..."
-        echo "📦 Installing Terraform via snap..."
+# Step 5: Deploy template to Coder
+echo "🏗️ Deploying template to Coder..."
 
-        # Install Terraform using snap
-        if command -v snap >/dev/null 2>&1; then
-            sudo snap install terraform --classic
-            echo "✅ Terraform installed successfully!"
-
-            # Initialize and apply Terraform
-            terraform init
-            terraform plan
-            terraform apply -auto-approve
-        else
-            echo "❌ Snap not available. Please install Terraform manually:"
-            echo "   curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -"
-            echo "   sudo apt-add-repository \"deb [arch=amd64] https://apt.releases.hashicorp.com \$(lsb_release -cs) main\""
-            echo "   sudo apt-get update && sudo apt-get install terraform"
-            echo ""
-            echo "   Or use: ./template.sh (fallback option)"
-        fi
-    fi
-else
-    echo "⚠️ terraform.tfvars not found, using default template deployment..."
-    ./template.sh
+# Check if CODER_SESSION_TOKEN is available
+if [ -z "${CODER_SESSION_TOKEN:-}" ]; then
+    echo "⚠️  No CODER_SESSION_TOKEN found. Template deployment requires authentication."
+    echo "   To get a session token:"
+    echo "   1. Open Coder in your browser: $CODER_ACCESS_URL"
+    echo "   2. Log in to Coder"
+    echo "   3. Go to Settings > Account > Tokens"
+    echo "   4. Create a new token and set it as CODER_SESSION_TOKEN"
+    echo "   5. Run: export CODER_SESSION_TOKEN=\"your-token\""
+    echo "   6. Then run: ./template.sh"
+    echo ""
+    echo "   Or create a .env file with your token:"
+    echo "   echo 'CODER_SESSION_TOKEN=\"your-token\"' >> .env"
+    echo ""
+    echo "✅ Coder server is running at: $CODER_ACCESS_URL"
+    echo "🔗 Configure your Gerrit plugin with serverUrl = $CODER_ACCESS_URL"
+    exit 0
 fi
+
+# Deploy template using template.sh
+echo "📋 Deploying template using template.sh..."
+./template.sh
 
 echo "🎉 Setup complete! Coder is running at: $CODER_ACCESS_URL"
 echo "🔗 Configure your Gerrit plugin with serverUrl = $CODER_ACCESS_URL"

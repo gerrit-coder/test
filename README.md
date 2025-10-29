@@ -6,11 +6,8 @@ This directory contains scripts and configuration files to set up a complete tes
 
 ### Option 1: Complete Automated Setup
 ```bash
-# Copy environment template and customize
-cp env.example .env
-# Edit .env with your values
-
 # Run complete setup (handles everything automatically)
+# It will create .env from env.example and prompt you to edit it
 ./run.sh
 ```
 
@@ -25,6 +22,10 @@ source ./load-env.sh
 
 ### Option 3: Manual Step-by-Step Setup
 ```bash
+# Copy environment template and customize
+cp env.example .env
+# Edit .env with your values
+
 # Load environment variables
 source ./load-env.sh
 
@@ -263,9 +264,8 @@ server:
 
 ### 1. Initial Setup
 ```bash
-# Copy environment template
+# Copy environment template and customize
 cp env.example .env
-
 # Edit .env with your values
 nano .env
 

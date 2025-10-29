@@ -13,9 +13,18 @@ CODER_TOKEN_VALUE=${CODER_SESSION_TOKEN:-${CODER_TOKEN:-}}
 # Check if token is provided
 if [ -z "$CODER_TOKEN_VALUE" ]; then
     echo "⚠️  No CODER_SESSION_TOKEN provided. Skipping template deployment."
-    echo "   To deploy templates, set CODER_SESSION_TOKEN environment variable:"
-    echo "   export CODER_SESSION_TOKEN=\"your-coder-session-token\""
-    echo "   Then run: ./template.sh"
+    echo ""
+    echo "   To deploy templates, you need a Coder session token:"
+    echo "   1. Open Coder in your browser: $CODER_URL"
+    echo "   2. Log in to Coder"
+    echo "   3. Go to Settings > Account > Tokens"
+    echo "   4. Create a new token"
+    echo "   5. Set the token in one of these ways:"
+    echo "      - Export: export CODER_SESSION_TOKEN=\"your-token\""
+    echo "      - Add to .env: echo 'CODER_SESSION_TOKEN=\"your-token\"' >> .env"
+    echo "   6. Then run: ./template.sh"
+    echo ""
+    echo "   Or run the complete setup: ./run.sh"
     exit 0
 fi
 
