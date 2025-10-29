@@ -14,6 +14,7 @@ services:
     environment:
       - CODER_TELEMETRY_ENABLE=0
       - CODER_ACCESS_URL=http://localhost:3000
+      - CODER_HTTP_ADDRESS=0.0.0.0:3000
     restart: unless-stopped
     networks:
       - coder-network

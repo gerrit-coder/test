@@ -69,6 +69,7 @@ Configure the test environment using these environment variables (set in `.env` 
 | `CODER_TEMPLATE_NAME` | Template name | `vscode-web` |
 | `DOCKER_GROUP` | Docker group ID for permissions | *(required for docker-compose)* |
 | `CODER_DATA` | Coder data directory for persistence | `./coder-data` |
+| `CODER_HTTP_ADDRESS` | Coder HTTP binding address | `0.0.0.0:3000` |
 | `CODER_SESSION_TOKEN` | Coder API token for authentication | *(required)* |
 
 ### Example `.env` file:
@@ -90,6 +91,9 @@ DOCKER_GROUP="999"
 
 # Coder Data Directory (for persistence)
 CODER_DATA="./coder-data"
+
+# Coder HTTP Binding (for Docker networking)
+CODER_HTTP_ADDRESS="0.0.0.0:3000"
 
 # Authentication
 CODER_SESSION_TOKEN="your-coder-session-token"
