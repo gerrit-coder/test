@@ -1,6 +1,6 @@
-# Coder-Gerrit Integration Test Environment
+# Coder Test
 
-This directory contains scripts and configuration files to set up a complete test environment for the Coder Workspace Gerrit plugin, including proper CORS configuration and Terraform-based workspace management.
+This directory contains scripts and configuration files to set up a complete test environment for the Coder Workspace Gerrit plugin with Terraform-based workspace management.
 
 ## 🚀 Quick Start
 
@@ -34,14 +34,8 @@ source ./load-env.sh
 # Start Coder server
 ./coder.sh
 
-# Setup CORS configuration
-./setup-cors.sh
-
 # Deploy template
 ./template.sh
-
-# Test CORS configuration
-./test-cors.sh
 ```
 
 ## 📋 Environment Variables
@@ -100,7 +94,7 @@ Configure your Gerrit plugin with the values from your environment:
 | Script | Description |
 |--------|-------------|
 | **`run.sh`** | Complete automated setup (recommended) |
-| **`setup-terraform.sh`** | Terraform-based setup with CORS |
+| **`setup-terraform.sh`** | Terraform-based setup |
 | **`load-env.sh`** | Loads environment variables from .env file |
 
 ### 🔧 Configuration Scripts
@@ -110,9 +104,7 @@ Configure your Gerrit plugin with the values from your environment:
 | **`apply-env-to-yaml.sh`** | Applies environment variables to YAML files |
 | **`env-to-terraform.sh`** | Converts .env to terraform.tfvars |
 | **`coder.sh`** | Starts Coder server with Docker |
-| **`setup-cors.sh`** | Configures CORS settings for Gerrit integration |
 | **`template.sh`** | Deploys the VS Code template to Coder |
-| **`test-cors.sh`** | Tests CORS configuration |
 
 ### 📋 Configuration Files
 
@@ -120,8 +112,8 @@ Configure your Gerrit plugin with the values from your environment:
 |------|-------------|
 | **`.env`** | Environment variables (copy from env.example) |
 | **`env.example`** | Environment variables template |
-| **`coder.yaml`** | Coder server configuration with CORS settings |
-| **`coder-explicit.yaml`** | Explicit CORS configuration (no env vars) |
+| **`coder.yaml`** | Coder server configuration |
+| **`coder-explicit.yaml`** | Explicit configuration (no env vars) |
 | **`code-server.tf`** | Terraform template for VS Code workspace |
 | **`terraform.tfvars`** | Terraform variables (generated from .env) |
 
@@ -150,7 +142,7 @@ source ./load-env.sh
 
 The `coder.sh` script starts a Coder server with:
 - Docker-based deployment
-- CORS configuration for Gerrit integration
+- Gerrit integration
 - External access on configurable port
 - Proper volume mounts for persistence
 
@@ -160,48 +152,14 @@ The `coder.sh` script starts a Coder server with:
 - `CODER_URL` - Internal URL for CLI
 - `CODER_TEMPLATE_NAME` - Template name (default: vscode-web)
 
-### 3. CORS Configuration
-
-The `setup-cors.sh` script handles CORS setup:
-
-**Features:**
-- ✅ Validates Coder container is running
-- ✅ Uses reliable docker inspect-based running check
-- ✅ Updates CORS configuration with `GERRIT_URL` from environment
-- ✅ Applies configuration and restarts Coder
-- ✅ Tests CORS preflight requests
-- ✅ Verifies API accessibility
-
-**CORS Settings:**
-```yaml
-http:
-  cors:
-    allow_origins:
-      - "${GERRIT_URL:-http://127.0.0.1:8080}"  # Uses environment variable
-      - "http://127.0.0.1:8080"    # Local development fallback
-    allow_methods:
-      - GET, POST, DELETE, OPTIONS
-    allow_headers:
-      - Content-Type
-      - Coder-Session-Token
-      - Authorization
-      - Accept
-    allow_credentials: true
-    enabled: true
-```
-
-### 4. Terraform Integration
+### 3. Terraform Integration
 
 The `code-server.tf` file includes:
-- Environment variable support for all CORS settings
 - Docker container configuration with proper environment variables
 - Flexible configuration via Terraform variables
 - Fixed Docker command to ensure workspace container starts reliably
 
 **Terraform Variables:**
-- `coder_cors_allow_origins` - Uses `GERRIT_URL` from environment
-- `coder_cors_allow_methods` - Configurable HTTP methods
-- `coder_cors_allow_headers` - Configurable headers
 - `coder_access_url` - Uses `CODER_ACCESS_URL` from environment
 - `gerrit_url` - Uses `GERRIT_URL` from environment
 
@@ -217,26 +175,6 @@ The `template.sh` script deploys a VS Code workspace template:
 - ✅ Skips deployment if no token provided (with helpful message)
 
 ## 🔧 Troubleshooting
-
-### CORS Issues
-
-If you see CORS errors in browser console:
-```bash
-# Test CORS configuration using environment variables
-curl -H "Origin: ${GERRIT_URL:-http://127.0.0.1:8080}" \
-     -H "Access-Control-Request-Method: GET" \
-     -H "Access-Control-Request-Headers: Coder-Session-Token" \
-     -X OPTIONS \
-     http://127.0.0.1:${CODER_PORT:-3000}/api/v2/templates
-```
-
-**Expected response:** HTTP 200 with CORS headers:
-```
-Access-Control-Allow-Origin: http://your-gerrit-server:8080
-Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Coder-Session-Token, Authorization, Accept
-Access-Control-Allow-Credentials: true
-```
 
 ### Environment Variable Issues
 
@@ -317,18 +255,8 @@ docker exec coder-server /opt/coder templates list
 ### Coder Configuration
 
 ```yaml
-http:
-  cors:
-    allow_origins:
-      - "http://127.0.0.1:8080"
-    allow_methods:
-      - GET
-      - POST
-      - DELETE
-      - OPTIONS
-    allow_headers:
-      - Content-Type
-      - Coder-Session-Token
+server:
+  bind_address: "0.0.0.0:3000"
 ```
 
 ## 🚀 Development Workflow

@@ -28,12 +28,6 @@ cat > "$TFVARS_FILE" << EOF
 # terraform.tfvars - Generated from .env file
 # Generated on: $(date)
 
-# CORS Configuration - Uses GERRIT_URL from environment
-coder_cors_allow_origins = "${GERRIT_URL:-http://127.0.0.1:8080},http://127.0.0.1:8080"
-coder_cors_allow_methods = "GET,POST,DELETE,OPTIONS"
-coder_cors_allow_headers = "Content-Type,Coder-Session-Token,Authorization,Accept"
-coder_cors_allow_credentials = "true"
-
 # Server Configuration - Uses CODER_ACCESS_URL from environment
 coder_http_address = "0.0.0.0:${CODER_PORT:-3000}"
 coder_access_url = "${CODER_ACCESS_URL:-http://127.0.0.1:3000}"
@@ -57,4 +51,3 @@ echo "🚀 Next steps:"
 echo "   1. Run: terraform init"
 echo "   2. Run: terraform plan"
 echo "   3. Run: terraform apply"
-echo "   4. Test CORS configuration"

@@ -1,30 +1,5 @@
-# Coder configuration file with explicit CORS settings for Gerrit integration
+# Coder configuration file
 # This version uses environment variables for flexibility
-
-# HTTP server configuration
-http:
-  # Enable CORS for cross-origin requests
-  cors:
-    # Allow requests from Gerrit server (uses GERRIT_URL environment variable)
-    allow_origins:
-      - "${GERRIT_URL:-http://127.0.0.1:8080}"  # Gerrit server URL from environment
-      - "http://127.0.0.1:8080"    # Local development fallback
-    # Allow necessary HTTP methods
-    allow_methods:
-      - GET
-      - POST
-      - DELETE
-      - OPTIONS
-    # Allow required headers
-    allow_headers:
-      - Content-Type
-      - Coder-Session-Token
-      - Authorization
-      - Accept
-    # Allow credentials if needed
-    allow_credentials: true
-    # Explicitly enable CORS
-    enabled: true
 
 # Server configuration
 server:

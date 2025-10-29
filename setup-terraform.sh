@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Terraform-based Coder Server Setup with CORS Configuration
-# This script sets up Coder server using Terraform with proper CORS settings
+# Terraform-based Coder Server Setup
+# This script sets up Coder server using Terraform
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🏗️ Setting up Coder server with Terraform and CORS configuration..."
+echo "🏗️ Setting up Coder server with Terraform..."
 
 # Load environment variables
 source ./load-env.sh
@@ -31,10 +31,6 @@ terraform apply -auto-approve
 # Wait for Coder server to start
 echo "⏳ Waiting for Coder server to start..."
 sleep 15
-
-# Test CORS configuration
-echo "🧪 Testing CORS configuration..."
-./test-cors.sh
 
 echo "✅ Terraform-based Coder setup completed!"
 echo "🌐 Coder server is running at: $CODER_ACCESS_URL"

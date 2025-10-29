@@ -38,7 +38,6 @@ fi
 
 echo "✅ Environment variable substitution completed!"
 echo "📋 Applied variables:"
-echo "   GERRIT_URL: ${GERRIT_URL:-http://127.0.0.1:8080}"
 echo "   CODER_PORT: ${CODER_PORT:-3000}"
 echo "   CODER_ACCESS_URL: ${CODER_ACCESS_URL:-http://127.0.0.1:3000}"
 echo "   CODER_SESSION_TOKEN: ${CODER_SESSION_TOKEN:-not set}"

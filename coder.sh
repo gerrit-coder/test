@@ -13,17 +13,16 @@ CODER_URL=${CODER_URL:-http://127.0.0.1:$CODER_PORT}
 CODER_TEMPLATE_NAME=${CODER_TEMPLATE_NAME:-vscode-web}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🚀 Starting Coder server with CORS configuration..."
+echo "🚀 Starting Coder server..."
 
 mkdir -p $CODER_DATA
 
-# Copy CORS configuration if it exists
+# Copy configuration if it exists
 if [ -f "$SCRIPT_DIR/coder.yaml" ]; then
-    echo "📋 Copying CORS configuration..."
+    echo "📋 Copying configuration..."
     cp "$SCRIPT_DIR/coder.yaml" "$CODER_DATA/coder.yaml"
 else
-    echo "⚠️  No coder.yaml found. CORS may not be configured."
-    echo "   Run ./setup-cors.sh after starting Coder to configure CORS."
+    echo "ℹ️  No coder.yaml found. Using default configuration."
 fi
 
 # Start Coder server
@@ -42,4 +41,3 @@ docker run --rm -d \
 
 echo "✅ Coder server started!"
 echo "🌐 Access URL: $CODER_ACCESS_URL"
-echo "🔧 To configure CORS for Gerrit integration, run: ./setup-cors.sh"

@@ -13,30 +13,7 @@ provider "docker" {}
 
 data "coder_workspace" "me" {}
 
-# Variables for CORS Configuration and Environment Variables
-variable "coder_cors_allow_origins" {
-  description = "CORS allowed origins for Gerrit integration"
-  type        = string
-  default     = "http://127.0.0.1:8080"
-}
-
-variable "coder_cors_allow_methods" {
-  description = "CORS allowed HTTP methods"
-  type        = string
-  default     = "GET,POST,DELETE,OPTIONS"
-}
-
-variable "coder_cors_allow_headers" {
-  description = "CORS allowed headers"
-  type        = string
-  default     = "Content-Type,Coder-Session-Token,Authorization,Accept"
-}
-
-variable "coder_cors_allow_credentials" {
-  description = "CORS allow credentials"
-  type        = string
-  default     = "true"
-}
+# Variables for Environment Configuration
 
 variable "coder_http_address" {
   description = "Coder HTTP server address"
@@ -110,11 +87,6 @@ resource "docker_container" "workspace" {
 
   env = [
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
-    # CORS Configuration for Gerrit Integration
-    "CODER_CORS_ALLOW_ORIGINS=${var.coder_cors_allow_origins}",
-    "CODER_CORS_ALLOW_METHODS=${var.coder_cors_allow_methods}",
-    "CODER_CORS_ALLOW_HEADERS=${var.coder_cors_allow_headers}",
-    "CODER_CORS_ALLOW_CREDENTIALS=${var.coder_cors_allow_credentials}",
     # Server Configuration
     "CODER_HTTP_ADDRESS=${var.coder_http_address}",
     "CODER_ACCESS_URL=${var.coder_access_url}",

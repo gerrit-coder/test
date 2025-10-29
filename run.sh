@@ -17,8 +17,8 @@ echo "📋 Converting environment variables to Terraform configuration..."
 echo "🐳 Starting Coder server..."
 ./coder.sh
 
-# Step 4: Setup CORS configuration (wait until Coder API is ready)
-echo "🔧 Setting up CORS configuration..."
+# Step 4: Wait for Coder API to be ready
+echo "⏳ Waiting for Coder API to be ready..."
 
 # Wait until Coder responds (200/401) to avoid "container not running" races
 attempt=0
@@ -35,8 +35,6 @@ while ! echo "$code" | grep -qE '^(200|401)$'; do
   sleep 2
   code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${CODER_PORT:-3000}/api/v2/templates")
 done
-
-./setup-cors.sh
 
 # Step 5: Deploy template with Terraform
 echo "🏗️ Deploying template with Terraform..."
@@ -76,10 +74,6 @@ fi
 echo "🎉 Setup complete! Coder is running at: $CODER_ACCESS_URL"
 echo "🔗 Configure your Gerrit plugin with serverUrl = $CODER_ACCESS_URL"
 echo ""
-echo "🧪 Test CORS configuration:"
-echo "   ./test-cors.sh"
-echo ""
 echo "📋 Next steps:"
 echo "   1. Configure Gerrit plugin with serverUrl = $CODER_ACCESS_URL"
 echo "   2. Test 'Open Coder Workspace' action in Gerrit"
-echo "   3. Check browser console for any remaining errors"
