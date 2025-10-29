@@ -48,14 +48,9 @@ stop_existing_containers() {
 update_nginx_config() {
     echo "📝 Updating nginx configuration..."
 
-    # Create a temporary nginx config with environment variable substitution
-    local temp_config=$(mktemp)
-    env GERRIT_URL="$GERRIT_URL" CODER_PORT="$CODER_PORT" NGINX_PORT="$NGINX_PORT" \
-        envsubst < "$SCRIPT_DIR/nginx.conf" > "$temp_config"
-
-    # Replace the original config with the substituted version
-    mv "$temp_config" "$SCRIPT_DIR/nginx.conf"
-    echo "✅ Updated nginx configuration"
+    # Nginx configuration doesn't need environment variable substitution
+    # The nginx.conf file is already properly configured
+    echo "✅ Nginx configuration is ready"
 }
 
 # Function to start services with Docker Compose
