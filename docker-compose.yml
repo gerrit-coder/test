@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Coder server
   coder-server:
-    image: codercom/coder:latest
+    image: ghcr.io/coder/coder:latest
     container_name: coder-server
     ports:
       - "3000:3000"
