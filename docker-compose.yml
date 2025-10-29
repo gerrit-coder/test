@@ -8,7 +8,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - coder-data:/home/coder/.config
+      - ./coder-data:/home/coder/.config
       - ./coder.yaml:/home/coder/.config/coder.yaml:ro
     environment:
       - CODER_TELEMETRY_ENABLE=0
@@ -16,7 +16,6 @@ services:
     restart: unless-stopped
     networks:
       - coder-network
-    user: "1000:1000"  # Run as non-root user
 
   # Nginx reverse proxy for CORS handling
   nginx-proxy:
@@ -33,9 +32,6 @@ services:
       - coder-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
-volumes:
-  coder-data:
 
 networks:
   coder-network:
