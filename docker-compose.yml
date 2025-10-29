@@ -11,11 +11,12 @@ services:
       - coder-data:/home/coder/.config
       - ./coder.yaml:/home/coder/.config/coder.yaml:ro
     environment:
-      - CODER_TELEMETRY=0
+      - CODER_TELEMETRY_ENABLE=0
       - CODER_ACCESS_URL=http://localhost:3000
     restart: unless-stopped
     networks:
       - coder-network
+    user: "1000:1000"  # Run as non-root user
 
   # Nginx reverse proxy for CORS handling
   nginx-proxy:
