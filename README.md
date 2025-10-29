@@ -107,6 +107,12 @@ Configure your Gerrit plugin with the values from your environment:
 | **`coder.sh`** | Starts Coder server with Docker |
 | **`template.sh`** | Deploys the VS Code template to Coder |
 
+### 🧹 Utility Scripts
+
+| Script | Description |
+|--------|-------------|
+| **`cleanup-containers.sh`** | Removes conflicting Docker containers (name collisions) |
+
 ### 📋 Configuration Files
 
 | File | Description |

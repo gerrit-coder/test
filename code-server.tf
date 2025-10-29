@@ -83,7 +83,7 @@ resource "coder_app" "code-server" {
 resource "docker_container" "workspace" {
   count = data.coder_workspace.me.start_count
   image = "codercom/enterprise-base:ubuntu"
-  name  = "coder-${data.coder_workspace.me.name}"
+  name  = "coder-workspace-${data.coder_workspace.me.name}-${count.index}"
 
   env = [
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
@@ -106,4 +106,8 @@ resource "docker_container" "workspace" {
     sleep 2
   EOT
   ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
