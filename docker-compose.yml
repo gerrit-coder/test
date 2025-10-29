@@ -8,7 +8,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ${CODER_DATA:-./coder-data}:/home/coder/.config/coderv2
+      - ${CODER_DATA:-./coder-data}:/home/coder/.config
       - ./coder.yaml:/home/coder/.config/coder.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
