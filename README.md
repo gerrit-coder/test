@@ -164,7 +164,8 @@ The `coder.sh` script starts a Coder server with:
 The `code-server.tf` file includes:
 - Docker container configuration with proper environment variables
 - Flexible configuration via Terraform variables
-- Fixed Docker command to ensure workspace container starts reliably
+- Host networking for the workspace container so `127.0.0.1:3000` reaches the host Coder server
+- Direct agent startup with provided URL/token (no probing required in normal cases)
 
 **Terraform Variables:**
 - `coder_access_url` - Uses `CODER_ACCESS_URL` from environment

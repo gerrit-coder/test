@@ -104,9 +104,11 @@ resource "docker_container" "workspace" {
   count = data.coder_workspace.me.start_count
   image = "codercom/enterprise-base:ubuntu"
   name  = "coder-workspace-${data.coder_workspace.me.name}-${count.index}"
+  network_mode = "host"
 
   env = [
     "CODER_AGENT_TOKEN=${coder_agent.main.token}",
+    "CODER_AGENT_URL=${var.coder_access_url}",
     # Server Configuration
     "CODER_HTTP_ADDRESS=${var.coder_http_address}",
     "CODER_ACCESS_URL=${var.coder_access_url}",
@@ -118,8 +120,18 @@ resource "docker_container" "workspace" {
     "CODER_SESSION_TOKEN=${var.coder_session_token}"
   ]
 
-  # Let the Coder agent handle the startup script
-  command = ["sh", "-c", "sleep infinity"]
+  # Bootstrap and run the Coder agent; it will execute startup_script above
+  command = [
+    "sh",
+    "-lc",
+    <<-EOC
+      set -e
+      # Install Coder agent and connect back using the provided token
+      curl -fsSL https://coder.com/install.sh | sh
+      echo "Starting Coder agent..."
+      coder agent start --url "$CODER_AGENT_URL" --token "$CODER_AGENT_TOKEN"
+    EOC
+  ]
 
   lifecycle {
     create_before_destroy = true
