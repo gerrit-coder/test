@@ -81,6 +81,18 @@ variable "coder_session_token" {
   sensitive   = true
 }
 
+variable "docker_group" {
+  description = "Docker group ID for container permissions"
+  type        = string
+  default     = ""
+}
+
+variable "coder_data" {
+  description = "Coder data directory path"
+  type        = string
+  default     = "./coder-data"
+}
+
 resource "coder_agent" "main" {
   arch           = "amd64"
   os             = "linux"
