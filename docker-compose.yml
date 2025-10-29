@@ -8,14 +8,17 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./coder-data:/home/coder/.config
+      - ${CODER_DATA:-./coder-data}:/home/coder/.config/coderv2
       - ./coder.yaml:/home/coder/.config/coder.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - CODER_TELEMETRY_ENABLE=0
       - CODER_ACCESS_URL=http://localhost:3000
     restart: unless-stopped
     networks:
       - coder-network
+    group_add:
+      - ${DOCKER_GROUP}
 
   # Nginx reverse proxy for CORS handling
   nginx-proxy:

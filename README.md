@@ -67,6 +67,8 @@ Configure the test environment using these environment variables (set in `.env` 
 | `NGINX_PORT` | Nginx proxy port | `3001` |
 | `CODER_PROXY_URL` | Nginx proxy URL for Gerrit | `http://127.0.0.1:3001` |
 | `CODER_TEMPLATE_NAME` | Template name | `vscode-web` |
+| `DOCKER_GROUP` | Docker group ID for permissions | *(required for docker-compose)* |
+| `CODER_DATA` | Coder data directory for persistence | `./coder-data` |
 | `CODER_SESSION_TOKEN` | Coder API token for authentication | *(required)* |
 
 ### Example `.env` file:
@@ -81,6 +83,13 @@ CODER_URL="http://127.0.0.1:3000"
 
 # Template Configuration
 CODER_TEMPLATE_NAME="vscode-web"
+
+# Docker Configuration (required for docker-compose.yml)
+# Get the Docker group ID by running: getent group docker | cut -d: -f3
+DOCKER_GROUP="999"
+
+# Coder Data Directory (for persistence)
+CODER_DATA="./coder-data"
 
 # Authentication
 CODER_SESSION_TOKEN="your-coder-session-token"

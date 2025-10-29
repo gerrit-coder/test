@@ -43,6 +43,8 @@ coder_redirect_to_access_url = "false"
 # Integration Configuration - Uses GERRIT_URL from environment
 gerrit_url = "${GERRIT_URL:-http://127.0.0.1:8080}"
 coder_port = "${CODER_PORT:-3000}"
+coder_data = "${CODER_DATA:-./coder-data}"
+docker_group = "${DOCKER_GROUP:-}"
 coder_session_token = "${CODER_SESSION_TOKEN:-}"
 EOF
 
@@ -51,6 +53,8 @@ echo "📋 Generated variables:"
 echo "   GERRIT_URL: ${GERRIT_URL:-http://127.0.0.1:8080}"
 echo "   CODER_PORT: ${CODER_PORT:-3000}"
 echo "   CODER_ACCESS_URL: ${CODER_ACCESS_URL:-http://127.0.0.1:3000}"
+echo "   CODER_DATA: ${CODER_DATA:-./coder-data}"
+echo "   DOCKER_GROUP: ${DOCKER_GROUP:-not set}"
 echo "   CODER_SESSION_TOKEN: ${CODER_SESSION_TOKEN:-not set}"
 echo ""
 echo "🚀 Next steps:"

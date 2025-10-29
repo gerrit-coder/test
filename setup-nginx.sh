@@ -11,6 +11,8 @@ GERRIT_URL="${GERRIT_URL:-http://127.0.0.1:8080}"
 CODER_PORT="${CODER_PORT:-3000}"
 NGINX_PORT="${NGINX_PORT:-3001}"
 CODER_ACCESS_URL="${CODER_ACCESS_URL:-http://127.0.0.1:3000}"
+CODER_DATA="${CODER_DATA:-./coder-data}"
+DOCKER_GROUP="${DOCKER_GROUP:-$(getent group docker | cut -d: -f3 2>/dev/null || echo '')}"
 
 echo "🔧 Setting up nginx reverse proxy for Coder-Gerrit CORS integration..."
 
@@ -60,9 +62,27 @@ update_nginx_config() {
 start_services() {
     echo "🐳 Starting services with Docker Compose..."
 
+    # Check if DOCKER_GROUP is set
+    if [ -z "$DOCKER_GROUP" ]; then
+        echo "❌ DOCKER_GROUP is not set. Please set it in your .env file or run:"
+        echo "   export DOCKER_GROUP=\$(getent group docker | cut -d: -f3)"
+        exit 1
+    fi
+
+    # Create CODER_DATA directory structure if it doesn't exist
+    if [ ! -d "$CODER_DATA" ]; then
+        echo "📁 Creating Coder data directory: $CODER_DATA"
+        mkdir -p "$CODER_DATA"
+    fi
+
+    # Ensure the directory has proper permissions
+    echo "🔧 Setting up directory permissions..."
+    chmod 755 "$CODER_DATA" 2>/dev/null || true
+
     # Update docker-compose.yml with environment variables
     local temp_compose=$(mktemp)
     env CODER_PORT="$CODER_PORT" NGINX_PORT="$NGINX_PORT" CODER_ACCESS_URL="$CODER_ACCESS_URL" \
+        CODER_DATA="$CODER_DATA" DOCKER_GROUP="$DOCKER_GROUP" \
         envsubst < "$SCRIPT_DIR/docker-compose.yml" > "$temp_compose"
     mv "$temp_compose" "$SCRIPT_DIR/docker-compose.yml"
 
@@ -160,6 +180,8 @@ show_summary() {
     echo "   Gerrit URL: $GERRIT_URL"
     echo "   Coder Direct URL: http://localhost:$CODER_PORT"
     echo "   Coder Proxy URL: http://localhost:$NGINX_PORT"
+    echo "   Coder Data Directory: $CODER_DATA"
+    echo "   Docker Group ID: $DOCKER_GROUP"
     echo "   Nginx Config: $SCRIPT_DIR/nginx.conf"
     echo "   Docker Compose: $SCRIPT_DIR/docker-compose.yml"
     echo ""
