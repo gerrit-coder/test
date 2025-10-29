@@ -24,14 +24,16 @@ cp env.example .env
 ./setup-nginx.sh
 ```
 
-### Option 2: Terraform-Based Setup
+### Option 2: Terraform-Based Setup (Alternative)
 ```bash
 # Load environment variables
 source ./load-env.sh
 
-# Run Terraform-based setup
+# Run Terraform-based setup (creates workspaces directly)
 ./setup-terraform.sh
 ```
+
+**Note:** This approach uses Terraform to create workspaces directly, not Coder templates.
 
 ### Option 3: Manual Step-by-Step Setup
 ```bash
@@ -53,6 +55,30 @@ source ./load-env.sh
 # Test CORS configuration
 ./test-cors.sh
 ```
+
+## 📋 Template vs Workspace Configuration
+
+This project provides two different approaches for creating development environments:
+
+### 🎯 **Coder Templates (Recommended)**
+- **File**: `code-server.tf` + `template.sh`
+- **Purpose**: Creates a template in Coder that users can use to create workspaces
+- **Usage**: Deploy with `./template.sh` or `./run.sh`
+- **Benefits**:
+  - ✅ Users can create workspaces through Coder UI
+  - ✅ Gerrit plugin can create workspaces on-demand
+  - ✅ Template is reusable and manageable through Coder
+
+### 🔧 **Terraform Workspaces (Alternative)**
+- **File**: `code-server.tf` + `terraform.tfvars`
+- **Purpose**: Creates workspaces directly using Terraform
+- **Usage**: Deploy with `./setup-terraform.sh`
+- **Benefits**:
+  - ✅ Direct workspace creation
+  - ✅ Infrastructure as code
+  - ✅ More control over workspace configuration
+
+**For Gerrit Integration**: Use **Coder Templates** approach as it allows the Gerrit plugin to create workspaces dynamically.
 
 ## 📋 Environment Variables
 
@@ -124,7 +150,7 @@ Configure your Gerrit plugin with the values from your environment:
 
 | Script | Description |
 |--------|-------------|
-| **`run.sh`** | Complete automated setup (recommended) |
+| **`run.sh`** | Complete automated setup with Coder template deployment (recommended) |
 | **`setup-nginx.sh`** | Nginx proxy setup for CORS (recommended for CORS issues) |
 | **`setup-terraform.sh`** | Terraform-based setup with CORS |
 | **`load-env.sh`** | Loads environment variables from .env file |
