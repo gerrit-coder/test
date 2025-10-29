@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # Coder server
+  coder-server:
+    image: codercom/coder:latest
+    container_name: coder-server
+    ports:
+      - "3000:3000"
+    volumes:
+      - coder-data:/home/coder/.config
+      - ./coder.yaml:/home/coder/.config/coder.yaml:ro
+    environment:
+      - CODER_TELEMETRY=0
+      - CODER_ACCESS_URL=http://localhost:3000
+    restart: unless-stopped
+    networks:
+      - coder-network
+
+  # Nginx reverse proxy for CORS handling
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: nginx-coder-proxy
+    ports:
+      - "3001:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - coder-server
+    restart: unless-stopped
+    networks:
+      - coder-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  coder-data:
+
+networks:
+  coder-network:
+    driver: bridge

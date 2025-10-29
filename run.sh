@@ -3,7 +3,7 @@
 ## Load environment variables
 source ./load-env.sh
 
-echo "🚀 Starting complete Coder-Gerrit integration setup..."
+echo "🚀 Starting complete Coder-Gerrit integration setup with nginx proxy..."
 
 # Step 1: Apply environment variables to YAML files
 echo "📋 Applying environment variables to YAML configuration files..."
@@ -13,32 +13,11 @@ echo "📋 Applying environment variables to YAML configuration files..."
 echo "📋 Converting environment variables to Terraform configuration..."
 ./env-to-terraform.sh
 
-# Step 3: Start Coder server
-echo "🐳 Starting Coder server..."
-./coder.sh
+# Step 3: Setup nginx proxy with Coder server (handles CORS automatically)
+echo "🔧 Setting up nginx proxy with Coder server..."
+./setup-nginx.sh
 
-# Step 4: Setup CORS configuration (wait until Coder API is ready)
-echo "🔧 Setting up CORS configuration..."
-
-# Wait until Coder responds (200/401) to avoid "container not running" races
-attempt=0
-until code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${CODER_PORT:-3000}/api/v2/templates"); do
-  :
-done
-while ! echo "$code" | grep -qE '^(200|401)$'; do
-  if [ $attempt -gt 30 ]; then
-    echo "❌ Coder did not become ready in time (last HTTP $code)" >&2
-    break
-  fi
-  attempt=$((attempt+1))
-  echo "⏳ Waiting for Coder API (HTTP $code)..."
-  sleep 2
-  code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${CODER_PORT:-3000}/api/v2/templates")
-done
-
-./setup-cors.sh
-
-# Step 5: Deploy template with Terraform
+# Step 4: Deploy template with Terraform
 echo "🏗️ Deploying template with Terraform..."
 if [ -f "terraform.tfvars" ]; then
     echo "📋 Using terraform.tfvars for configuration..."
@@ -73,13 +52,17 @@ else
     ./template.sh
 fi
 
-echo "🎉 Setup complete! Coder is running at: $CODER_ACCESS_URL"
-echo "🔗 Configure your Gerrit plugin with serverUrl = $CODER_ACCESS_URL"
+echo "🎉 Setup complete! Coder is running with nginx proxy at: $CODER_PROXY_URL"
+echo "🔗 Configure your Gerrit plugin with serverUrl = $CODER_PROXY_URL"
 echo ""
-echo "🧪 Test CORS configuration:"
-echo "   ./test-cors.sh"
+echo "🧪 Test nginx proxy CORS configuration:"
+echo "   ./test-nginx-cors.sh"
 echo ""
 echo "📋 Next steps:"
-echo "   1. Configure Gerrit plugin with serverUrl = $CODER_ACCESS_URL"
+echo "   1. Configure Gerrit plugin with serverUrl = $CODER_PROXY_URL"
 echo "   2. Test 'Open Coder Workspace' action in Gerrit"
 echo "   3. Check browser console for any remaining errors"
+echo ""
+echo "💡 Architecture: Gerrit (8080) → Nginx Proxy (3001) → Coder (3000)"
+echo "   - Direct Coder URL: $CODER_ACCESS_URL"
+echo "   - Proxy URL (use this): $CODER_PROXY_URL"

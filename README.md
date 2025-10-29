@@ -1,4 +1,4 @@
-# Coder-Gerrit Integration Test Environment
+# Coder Test
 
 This directory contains scripts and configuration files to set up a complete test environment for the Coder Workspace Gerrit plugin, including proper CORS configuration and Terraform-based workspace management.
 
@@ -12,6 +12,16 @@ cp env.example .env
 
 # Run complete setup (handles everything automatically)
 ./run.sh
+```
+
+### Option 1b: Nginx Proxy Setup (Recommended for CORS Issues)
+```bash
+# Copy environment template and customize
+cp env.example .env
+# Edit .env with your values
+
+# Run nginx-based setup (handles CORS automatically)
+./setup-nginx.sh
 ```
 
 ### Option 2: Terraform-Based Setup
@@ -54,6 +64,8 @@ Configure the test environment using these environment variables (set in `.env` 
 | `CODER_PORT` | Coder server port | `3000` |
 | `CODER_ACCESS_URL` | External Coder URL | `http://127.0.0.1:3000` |
 | `CODER_URL` | Internal Coder URL for CLI | `http://127.0.0.1:3000` |
+| `NGINX_PORT` | Nginx proxy port | `3001` |
+| `CODER_PROXY_URL` | Nginx proxy URL for Gerrit | `http://127.0.0.1:3001` |
 | `CODER_TEMPLATE_NAME` | Template name | `vscode-web` |
 | `CODER_SESSION_TOKEN` | Coder API token for authentication | *(required)* |
 
@@ -100,6 +112,7 @@ Configure your Gerrit plugin with the values from your environment:
 | Script | Description |
 |--------|-------------|
 | **`run.sh`** | Complete automated setup (recommended) |
+| **`setup-nginx.sh`** | Nginx proxy setup for CORS (recommended for CORS issues) |
 | **`setup-terraform.sh`** | Terraform-based setup with CORS |
 | **`load-env.sh`** | Loads environment variables from .env file |
 
@@ -122,10 +135,34 @@ Configure your Gerrit plugin with the values from your environment:
 | **`env.example`** | Environment variables template |
 | **`coder.yaml`** | Coder server configuration with CORS settings |
 | **`coder-explicit.yaml`** | Explicit CORS configuration (no env vars) |
+| **`nginx.conf`** | Nginx reverse proxy configuration for CORS |
+| **`docker-compose.yml`** | Docker Compose configuration for Coder + Nginx |
 | **`code-server.tf`** | Terraform template for VS Code workspace |
 | **`terraform.tfvars`** | Terraform variables (generated from .env) |
 
 ## 🏗️ Detailed Setup
+
+### 🔗 URL Configuration Guide
+
+The test environment provides two ways to connect Gerrit to Coder:
+
+**Option 1: Nginx Proxy (Recommended)**
+- **Gerrit Plugin Configuration**: `serverUrl = http://localhost:3001`
+- **Environment Variable**: `CODER_PROXY_URL="http://127.0.0.1:3001"`
+- **Benefits**: Automatic CORS handling, no Coder configuration needed
+- **Setup**: Run `./setup-nginx.sh`
+
+**Option 2: Direct Coder Connection**
+- **Gerrit Plugin Configuration**: `serverUrl = http://localhost:3000`
+- **Environment Variable**: `CODER_ACCESS_URL="http://127.0.0.1:3000"`
+- **Benefits**: Direct connection, simpler setup
+- **Requirements**: Coder must be configured with proper CORS settings
+- **Setup**: Run `./run.sh` or `./setup-cors.sh`
+
+**For Production:**
+- Replace `localhost` with your actual server hostnames
+- Use HTTPS URLs for production environments
+- Configure proper DNS and SSL certificates
 
 ### 1. Environment Configuration
 
@@ -160,9 +197,38 @@ The `coder.sh` script starts a Coder server with:
 - `CODER_URL` - Internal URL for CLI
 - `CODER_TEMPLATE_NAME` - Template name (default: vscode-web)
 
-### 3. CORS Configuration
+### 3. Nginx Proxy Solution (Recommended)
 
-The `setup-cors.sh` script handles CORS setup:
+The `setup-nginx.sh` script provides a robust solution for CORS issues by using nginx as a reverse proxy:
+
+**Features:**
+- ✅ Handles all CORS headers automatically
+- ✅ No need to configure Coder CORS settings
+- ✅ Works with any Gerrit URL configuration
+- ✅ Supports WebSocket connections
+- ✅ Health check endpoint for monitoring
+- ✅ Docker Compose-based deployment
+
+**Architecture:**
+```
+Gerrit (8080) → Nginx Proxy (3001) → Coder (3000)
+```
+
+**Configuration:**
+- Gerrit plugin uses `serverUrl = http://localhost:3001` (nginx proxy)
+- Nginx proxy forwards requests to Coder on port 3000
+- All CORS headers are handled by nginx
+- Use `CODER_PROXY_URL` environment variable for flexible configuration
+
+**Files:**
+- `nginx.conf` - Nginx configuration with CORS headers
+- `docker-compose.yml` - Docker Compose setup for both services
+- `setup-nginx.sh` - Automated setup script
+- `test-nginx-cors.sh` - Testing script for nginx proxy
+
+### 4. CORS Configuration (Alternative)
+
+The `setup-cors.sh` script handles CORS setup directly in Coder:
 
 **Features:**
 - ✅ Validates Coder container is running
@@ -190,7 +256,7 @@ http:
     enabled: true
 ```
 
-### 4. Terraform Integration
+### 5. Terraform Integration
 
 The `code-server.tf` file includes:
 - Environment variable support for all CORS settings
@@ -205,7 +271,7 @@ The `code-server.tf` file includes:
 - `coder_access_url` - Uses `CODER_ACCESS_URL` from environment
 - `gerrit_url` - Uses `GERRIT_URL` from environment
 
-### 5. Template Deployment
+### 6. Template Deployment
 
 The `template.sh` script deploys a VS Code workspace template:
 
@@ -217,6 +283,32 @@ The `template.sh` script deploys a VS Code workspace template:
 - ✅ Skips deployment if no token provided (with helpful message)
 
 ## 🔧 Troubleshooting
+
+### Nginx Proxy Issues
+
+If you're using the nginx proxy solution and experiencing issues:
+
+```bash
+# Check if containers are running
+docker ps | grep -E "(coder-server|nginx-coder-proxy)"
+
+# Check nginx logs
+docker logs nginx-coder-proxy
+
+# Check coder logs
+docker logs coder-server
+
+# Test nginx proxy directly
+curl -v http://localhost:3001/health
+
+# Test CORS through nginx
+./test-nginx-cors.sh
+```
+
+**Common Issues:**
+- **Container not starting**: Check Docker is running and ports 3000/3001 are available
+- **CORS still failing**: Ensure Gerrit plugin uses `serverUrl = http://localhost:3001`
+- **Connection refused**: Wait for services to fully start (can take 30+ seconds)
 
 ### CORS Issues
 
@@ -333,7 +425,19 @@ http:
 
 ## 🚀 Development Workflow
 
-### 1. Initial Setup
+### 1. Initial Setup (Nginx Proxy - Recommended)
+```bash
+# Copy environment template
+cp env.example .env
+
+# Edit .env with your values
+nano .env
+
+# Run nginx-based setup
+./setup-nginx.sh
+```
+
+### 1b. Initial Setup (Direct CORS)
 ```bash
 # Copy environment template
 cp env.example .env
@@ -360,14 +464,26 @@ curl -H "Coder-Session-Token: $CODER_SESSION_TOKEN" \
 ```
 
 ### 3. Configure Gerrit Plugin
-Use the values from step 2 in your Gerrit configuration:
+
+**Option A: Using Nginx Proxy (Recommended)**
 ```ini
 [plugin "coder-workspace"]
   enabled = true
-  serverUrl = $CODER_ACCESS_URL  # From .env file
-  apiKey = ${secret:coder/session_token}  # Use CODER_SESSION_TOKEN
-  templateId = YOUR_TEMPLATE_ID  # From API call
-  organization = YOUR_ORGANIZATION_ID  # From API call
+  serverUrl = http://localhost:3001  # Use nginx proxy port
+  apiKey = ${secret:coder/session_token}
+  templateId = YOUR_TEMPLATE_ID
+  organization = YOUR_ORGANIZATION_ID
+  user = YOUR_USERNAME
+```
+
+**Option B: Direct Coder Connection**
+```ini
+[plugin "coder-workspace"]
+  enabled = true
+  serverUrl = http://localhost:3000  # Direct coder port
+  apiKey = ${secret:coder/session_token}
+  templateId = YOUR_TEMPLATE_ID
+  organization = YOUR_ORGANIZATION_ID
   user = YOUR_USERNAME
 ```
 
@@ -379,7 +495,10 @@ Use the values from step 2 in your Gerrit configuration:
 ## 🧹 Cleanup
 
 ```bash
-# Stop Coder container
+# Stop services (nginx proxy setup)
+docker-compose down
+
+# Stop Coder container (direct setup)
 docker stop coder-server
 
 # Remove Coder data (optional)
