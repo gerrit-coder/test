@@ -81,8 +81,6 @@ Configure your Gerrit plugin with the values from your environment:
   templateId = YOUR_TEMPLATE_ID
   organization = YOUR_ORGANIZATION_ID
   user = YOUR_USERNAME
-  autostart = true
-  automaticUpdates = always
   openAfterCreate = true
   enableDryRunPreview = false
   ttlMs = 0
@@ -289,8 +287,6 @@ microsoft-edge --user-data-dir="/tmp/edge_dev" --disable-web-security
   templateId = 2d0e2208-8b2d-4ea5-9ba1-44a68cc5d27f
   organization = 7daa7856-045c-4589-b4af-dee232d16bb3
   user = lemonjia
-  autostart = true
-  automaticUpdates = always
   openAfterCreate = true
   enableDryRunPreview = false
   ttlMs = 0
