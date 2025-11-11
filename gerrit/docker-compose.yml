@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  gerrit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gerrit:3.4.1
+    container_name: gerrit
+    hostname: gerrit
+    ports:
+      - "8080:8080"   # HTTP
+      - "29418:29418" # SSH
+    volumes:
+      - gerrit_site:/var/gerrit/review_site
+      - gerrit_cache:/var/gerrit/cache
+    environment:
+      - GERRIT_SITE=/var/gerrit/review_site
+    restart: unless-stopped
+    networks:
+      - gerrit-network
+
+volumes:
+  gerrit_site:
+    driver: local
+  gerrit_cache:
+    driver: local
+
+networks:
+  gerrit-network:
+    driver: bridge
