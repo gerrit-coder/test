@@ -23,13 +23,10 @@ RUN apt-get update && apt-get install -y \
     maven \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Bazelisk (Bazel version manager)
+# Install Bazelisk
 RUN curl -Lo /usr/local/bin/bazelisk https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 \
     && chmod +x /usr/local/bin/bazelisk \
     && ln -s /usr/local/bin/bazelisk /usr/local/bin/bazel
-
-# Install Bower (required for some plugins)
-RUN npm install -g bower
 
 # Set Java environment
 ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
@@ -38,21 +35,25 @@ ENV PATH=$JAVA_HOME/bin:$PATH
 # Set working directory
 WORKDIR /build
 
-# Clone Gerrit v3.4.1 with all plugins as submodules
-# Using --recurse-submodules to automatically clone all plugin submodules
-RUN git clone --branch v3.4.1 --recurse-submodules \
-    https://gerrit.googlesource.com/gerrit.git gerrit
+# Clone Gerrit source (needed for plugin build context, but not building Gerrit)
+RUN git clone --recurse-submodules https://gerrit.googlesource.com/gerrit
 
 # Ensure all submodules are properly initialized and updated
 WORKDIR /build/gerrit
-RUN git submodule update --init --recursive
+RUN git checkout --recurse-submodules v3.4.1
 
-# Build Gerrit and plugins
-# Build the release target which includes core plugins
-RUN bazel build :release
+# Clone coder-workspace plugin into plugins directory
+RUN git clone https://github.com/gerrit-coder/plugins_coder-workspace.git plugins/coder-workspace -b gerrit-3.4.1
 
-# Extract the built war file
-RUN cp bazel-bin/gerrit.war /build/gerrit.war
+# Build only the coder-workspace plugin
+RUN bazel build plugins/coder-workspace:coder-workspace
+
+# Copy the built plugin JAR
+RUN cp bazel-bin/plugins/coder-workspace/coder-workspace.jar /build/coder-workspace.jar
+
+# Download pre-built Gerrit 3.4.1 WAR file
+WORKDIR /build
+RUN wget -O gerrit.war https://gerrit-releases.storage.googleapis.com/gerrit-3.4.1.war
 
 # Stage 2: Runtime environment
 # Using Eclipse Temurin (formerly AdoptOpenJDK) as openjdk images are deprecated
@@ -70,12 +71,15 @@ RUN useradd -m -d /var/gerrit -s /bin/bash gerrit
 # Set working directory
 WORKDIR /var/gerrit
 
-# Copy the built Gerrit war file from builder stage
-COPY --from=builder /build/gerrit.war /var/gerrit/gerrit.war
+# Create Gerrit site directory and plugins directory
+RUN mkdir -p /var/gerrit/review_site /var/gerrit/plugins
 
-# Create Gerrit site directory
-RUN mkdir -p /var/gerrit/review_site && \
-    chown -R gerrit:gerrit /var/gerrit
+# Copy the pre-built Gerrit war file and plugin from builder stage
+COPY --from=builder /build/gerrit.war /var/gerrit/gerrit.war
+COPY --from=builder /build/coder-workspace.jar /var/gerrit/plugins/coder-workspace.jar
+
+# Set ownership
+RUN chown -R gerrit:gerrit /var/gerrit
 
 # Switch to gerrit user
 USER gerrit
@@ -89,7 +93,7 @@ EXPOSE 8080 29418
 ENV GERRIT_SITE=/var/gerrit/review_site
 ENV GERRIT_WAR=/var/gerrit/gerrit.war
 
-# Default command: initialize Gerrit if not already initialized, then run
+# Default command
 CMD if [ ! -f "$GERRIT_SITE/etc/gerrit.config" ]; then \
         java -jar $GERRIT_WAR init --batch --no-auto-start -d $GERRIT_SITE; \
     fi && \

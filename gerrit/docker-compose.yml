@@ -14,6 +14,7 @@ services:
     volumes:
       - gerrit_site:/var/gerrit/review_site
       - gerrit_cache:/var/gerrit/cache
+      - ./gerrit.config:/var/gerrit/review_site/etc/gerrit.config
     environment:
       - GERRIT_SITE=/var/gerrit/review_site
     restart: unless-stopped

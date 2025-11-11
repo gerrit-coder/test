@@ -40,9 +40,9 @@ build() {
         fi
     done
 
-    print_info "Building Gerrit Docker image from source..."
-    print_info "This will clone Gerrit v3.4.1 and all plugins from the official repository"
-    print_warn "This process may take 15-30 minutes depending on your system and network speed"
+    print_info "Building Gerrit Docker image..."
+    print_info "This will download pre-built Gerrit v3.4.1 WAR and build the coder-workspace plugin"
+    print_warn "This process may take 5-15 minutes depending on your system and network speed"
     cd "${SCRIPT_DIR}"
 
     if [ ! -f "${COMPOSE_FILE}" ]; then
@@ -57,8 +57,12 @@ build() {
 
     # Check internet connectivity
     print_info "Checking internet connectivity..."
-    if ! curl -s --head --fail https://gerrit.googlesource.com > /dev/null 2>&1; then
-        print_error "Cannot reach gerrit.googlesource.com. Please check your internet connection."
+    if ! curl -s --head --fail https://gerrit-releases.storage.googleapis.com > /dev/null 2>&1; then
+        print_error "Cannot reach gerrit-releases.storage.googleapis.com. Please check your internet connection."
+        exit 1
+    fi
+    if ! curl -s --head --fail https://github.com > /dev/null 2>&1; then
+        print_error "Cannot reach github.com. Please check your internet connection."
         exit 1
     fi
 
@@ -234,8 +238,8 @@ usage() {
     echo "Usage: $0 {build|run|restart|stop|status|logs|clean|check-image}"
     echo ""
     echo "Commands:"
-    echo "  build [--no-cache]  - Build the Gerrit Docker image from source"
-    echo "                        (clones Gerrit v3.4.1 and plugins from repository)"
+    echo "  build [--no-cache]  - Build the Gerrit Docker image"
+    echo "                        (downloads pre-built Gerrit v3.4.1 WAR and builds coder-workspace plugin)"
     echo "                        Use --no-cache for a clean build"
     echo "  run                 - Start the Gerrit container"
     echo "  restart             - Restart the Gerrit container"
