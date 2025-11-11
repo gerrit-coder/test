@@ -55,7 +55,8 @@ RUN bazel build :release
 RUN cp bazel-bin/gerrit.war /build/gerrit.war
 
 # Stage 2: Runtime environment
-FROM openjdk:11-jre-slim
+# Using Eclipse Temurin (formerly AdoptOpenJDK) as openjdk images are deprecated
+FROM eclipse-temurin:11-jre
 
 # Install required runtime dependencies
 RUN apt-get update && apt-get install -y \
