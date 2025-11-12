@@ -8,7 +8,8 @@ This setup provides:
 - **Multi-stage Docker image** based on Ubuntu 20.04 with OpenJDK 21
 - **Pre-built artifacts** - downloads Gerrit v3.4.1 WAR and coder-workspace plugin JAR (no compilation required)
 - **OpenJDK 21** - installed via apt package manager
-- **Configuration file** - `gerrit.config` is included in the image and can be overridden via volume mount
+- **Configuration file** - `gerrit.config` is bind-mounted from the local directory into the container
+- **Init container** - automatically creates required directory structure before the main container starts
 - **Docker Compose** configuration for easy deployment
 - **Management script** (`gerrit.sh`) for building the Docker image, running, and managing the container
 
@@ -21,19 +22,24 @@ This setup provides:
 
 ### First Time Setup
 
-1. **Build the Docker image** (downloads pre-built artifacts and installs OpenJDK 21, takes 2-5 minutes):
+1. **Ensure gerrit.config exists**:
+   The `gerrit.config` file must exist in the current directory. If you don't have one, you can create it or copy from the example.
+
+2. **Build the Docker image** (downloads pre-built artifacts and installs OpenJDK 21, takes 2-5 minutes):
    ```bash
    ./gerrit.sh build
    ```
 
    **Note**: This downloads pre-built files (Gerrit WAR and plugin JAR) and installs OpenJDK 21 via apt - no compilation or building of source code is performed.
 
-2. **Start Gerrit**:
+3. **Start Gerrit**:
    ```bash
    ./gerrit.sh run
    ```
 
-3. **Access Gerrit**:
+   **Note**: The init container (`gerrit-init`) will run first to create the required directory structure in the volume, then the main Gerrit container will start with your `gerrit.config` file bind-mounted.
+
+4. **Access Gerrit**:
    - Web UI: http://localhost:8080
    - SSH: ssh://localhost:29418
 
@@ -101,23 +107,14 @@ On first run, Gerrit will be automatically initialized with default settings. Th
 
 ### Custom Configuration
 
-The `gerrit.config` file is included in the Docker image and can be overridden by mounting a local file. You can customize Gerrit configuration in two ways:
+The `gerrit.config` file is **bind-mounted** from the local directory into the container. This means:
+- The local `./gerrit.config` file is directly mounted to `/var/gerrit/review_site/etc/gerrit.config` in the container
+- Changes to the local file are immediately reflected in the container (after restart)
+- The file must exist before starting the container
 
-#### Option 1: Edit Local Configuration File (Recommended)
+#### Editing the Configuration File
 
-1. **First-time setup**: The `gerrit.config` file is already included in the Docker image. If you want to customize it:
-   ```bash
-   # Start Gerrit to let it initialize (uses config from image)
-   ./gerrit.sh run
-
-   # Copy the config from container to local file for editing
-   docker cp gerrit:/var/gerrit/review_site/etc/gerrit.config ./gerrit.config
-
-   # Stop the container
-   ./gerrit.sh stop
-   ```
-
-2. **Edit the local file**:
+1. **Edit the local file**:
    ```bash
    # Edit ./gerrit.config in your favorite editor
    nano gerrit.config
@@ -125,35 +122,34 @@ The `gerrit.config` file is included in the Docker image and can be overridden b
    vim gerrit.config
    ```
 
-3. **Restart the container** to apply changes:
+2. **Restart the container** to apply changes:
    ```bash
    ./gerrit.sh restart
    ```
 
-The local `./gerrit.config` file (if it exists) is automatically mounted to `/var/gerrit/review_site/etc/gerrit.config` in the container, overriding the image's default config. Your changes take effect immediately after restart.
+#### Getting a Default Configuration
 
-#### Option 2: Edit Configuration in Volume
+If you don't have a `gerrit.config` file yet, you can:
 
-1. **Stop the container**:
+1. **Let Gerrit initialize first** (temporarily comment out the bind mount in `docker-compose.yml`):
    ```bash
+   # Comment out the gerrit.config bind mount in docker-compose.yml
+   # Then start Gerrit
+   ./gerrit.sh run
+
+   # Copy the generated config
+   docker cp gerrit:/var/gerrit/review_site/etc/gerrit.config ./gerrit.config
+
+   # Stop and uncomment the bind mount, then restart
    ./gerrit.sh stop
+
+   # Uncomment the bind mount in docker-compose.yml
+   ./gerrit.sh run
    ```
 
-2. **Access the Gerrit site volume**:
-   ```bash
-   docker volume inspect test_gerrit_site
-   ```
+2. **Or use the provided example** if available in the repository.
 
-3. **Edit configuration files** directly in the volume:
-   - Main config: `$GERRIT_SITE/etc/gerrit.config`
-   - Secure config: `$GERRIT_SITE/etc/secure.config`
-
-4. **Restart the container**:
-   ```bash
-   ./gerrit.sh restart
-   ```
-
-**Note**: The local `./gerrit.config` file takes precedence over the volume-mounted file. If you want to use the volume-based approach, temporarily comment out the `gerrit.config` volume mapping in `docker-compose.yml`.
+**Note**: The bind mount requires the `/etc` directory to exist in the volume. This is automatically handled by the `gerrit-init` init container that runs before the main container starts.
 
 ### Environment Variables
 
@@ -220,12 +216,16 @@ ports:
      ./gerrit.sh run
      ```
 
-**Problem**: Container fails to start with "gerrit.config is a directory" error
-- **Solution**: The local `./gerrit.config` file doesn't exist, so Docker created it as a directory. Fix by:
-  1. Remove the directory: `rm -rf ./gerrit.config`
-  2. Let Gerrit initialize first (comment out the gerrit.config volume line in docker-compose.yml temporarily)
-  3. Copy the generated config: `docker cp gerrit:/var/gerrit/review_site/etc/gerrit.config ./gerrit.config`
-  4. Re-enable the volume mapping and restart
+**Problem**: Container fails to start with "gerrit.config not found" error
+- **Solution**: The local `./gerrit.config` file doesn't exist. Fix by:
+  1. Create or copy a `gerrit.config` file to the current directory
+  2. See the "Getting a Default Configuration" section above for instructions on obtaining a default config
+
+**Problem**: Container fails to start with mount error "not a directory"
+- **Solution**: This should not happen with the init container setup. If it does:
+  1. Stop all containers: `./gerrit.sh stop`
+  2. Remove the volume: `docker volume rm test_gerrit_site`
+  3. Restart: `./gerrit.sh run` (the init container will recreate the directory structure)
 
 ### Plugin Issues
 
@@ -285,7 +285,9 @@ docker rmi gerrit:3.4.1
 - **Auto-Initialization**: Gerrit is automatically initialized on first run with default settings
 - **Data Persistence**: Gerrit data is stored in Docker volumes and persists across container restarts
 - **Plugin Location**: The plugin JAR is installed at `/var/gerrit/plugins/coder-workspace.jar` in the container
-- **Configuration File**: The `gerrit.config` file is included in the Docker image at build time and can be overridden by mounting a local `./gerrit.config` file. See the Configuration section for setup instructions.
+- **Configuration File**: The `gerrit.config` file is **bind-mounted** from the local directory (`./gerrit.config`) to `/var/gerrit/review_site/etc/gerrit.config` in the container. The file must exist before starting the container.
+- **Init Container**: A `gerrit-init` container (using busybox) runs before the main container to create the required `/etc` directory structure in the volume, enabling the bind mount to work correctly.
+- **Entrypoint Script**: The container uses `docker-entrypoint.sh` to ensure directory structure exists and handle Gerrit initialization if needed.
 
 ## 🔗 Related Documentation
 

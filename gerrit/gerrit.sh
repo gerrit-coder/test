@@ -91,6 +91,13 @@ run() {
     print_info "Starting Gerrit container..."
     cd "${SCRIPT_DIR}"
 
+    # Check if gerrit.config exists
+    if [ ! -f "${SCRIPT_DIR}/gerrit.config" ]; then
+        print_error "gerrit.config not found at ${SCRIPT_DIR}/gerrit.config"
+        print_info "Please create gerrit.config file before starting the container"
+        exit 1
+    fi
+
     # Check if container is already running
     if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
         print_warn "Container ${CONTAINER_NAME} is already running"
@@ -98,7 +105,7 @@ run() {
         return
     fi
 
-    # Start the container
+    # Start the container (init container will run first to create directory structure)
     docker-compose -f "${COMPOSE_FILE}" up -d
 
     if [ $? -eq 0 ]; then
@@ -202,10 +209,14 @@ clean() {
         stop
     fi
 
-    # Remove container if it exists
+    # Remove containers if they exist (including init container)
     if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-        print_info "Removing container..."
+        print_info "Removing container ${CONTAINER_NAME}..."
         docker rm "${CONTAINER_NAME}" 2>/dev/null || true
+    fi
+    if docker ps -a --format '{{.Names}}' | grep -q "^gerrit-init$"; then
+        print_info "Removing init container gerrit-init..."
+        docker rm gerrit-init 2>/dev/null || true
     fi
 
     # Remove image if it exists

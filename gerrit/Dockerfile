@@ -57,8 +57,9 @@ RUN mkdir -p /var/gerrit/review_site /var/gerrit/plugins /var/gerrit/review_site
 COPY --from=downloader /downloads/gerrit.war /var/gerrit/gerrit.war
 COPY --from=downloader /downloads/coder-workspace.jar /var/gerrit/plugins/coder-workspace.jar
 
-# Copy gerrit.config file into the image
-COPY gerrit.config /var/gerrit/review_site/etc/gerrit.config
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Set ownership
 RUN chown -R gerrit:gerrit /var/gerrit
@@ -75,9 +76,5 @@ EXPOSE 8080 29418
 ENV GERRIT_SITE=/var/gerrit/review_site
 ENV GERRIT_WAR=/var/gerrit/gerrit.war
 
-# Default command
-CMD ["sh", "-c", \
-    "if [ ! -f \"$GERRIT_SITE/etc/gerrit.config\" ]; then \
-        java -jar $GERRIT_WAR init --batch --no-auto-start -d $GERRIT_SITE; \
-    fi && \
-    java -jar $GERRIT_WAR daemon -d $GERRIT_SITE"]
+# Set entrypoint
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
