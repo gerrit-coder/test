@@ -92,9 +92,9 @@ run() {
     cd "${SCRIPT_DIR}"
 
     # Check if gerrit.config exists
-    if [ ! -f "${SCRIPT_DIR}/gerrit.config" ]; then
-        print_error "gerrit.config not found at ${SCRIPT_DIR}/gerrit.config"
-        print_info "Please create gerrit.config file before starting the container"
+    if [ ! -f "${SCRIPT_DIR}/etc/gerrit.config" ]; then
+        print_error "gerrit.config not found at ${SCRIPT_DIR}/etc/gerrit.config"
+        print_info "Please create etc/gerrit.config file before starting the container"
         exit 1
     fi
 

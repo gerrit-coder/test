@@ -25,7 +25,7 @@ services:
       - gerrit_site:/var/gerrit/review_site
       - gerrit_cache:/var/gerrit/cache
       - type: bind
-        source: ./gerrit.config
+        source: ./etc/gerrit.config
         target: /var/gerrit/review_site/etc/gerrit.config
     environment:
       - GERRIT_SITE=/var/gerrit/review_site
