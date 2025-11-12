@@ -14,9 +14,12 @@ services:
     volumes:
       - gerrit_site:/var/gerrit/review_site
       - gerrit_cache:/var/gerrit/cache
-      - ./gerrit.config:/var/gerrit/review_site/etc/gerrit.config
+      - type: bind
+        source: ./gerrit.config
+        target: /var/gerrit/review_site/etc/gerrit.config
     environment:
       - GERRIT_SITE=/var/gerrit/review_site
+      - JAVA_HOME=/opt/jdk-21.0.5
     restart: unless-stopped
     networks:
       - gerrit-network

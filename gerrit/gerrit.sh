@@ -41,8 +41,8 @@ build() {
     done
 
     print_info "Building Gerrit Docker image..."
-    print_info "This will download pre-built Gerrit v3.4.1 WAR and coder-workspace plugin JAR"
-    print_warn "This process may take 1-3 minutes depending on your network speed"
+    print_info "This will download pre-built Gerrit v3.4.1 WAR, coder-workspace plugin JAR, and JDK 21.0.5"
+    print_warn "This process may take 2-5 minutes depending on your network speed"
     cd "${SCRIPT_DIR}"
 
     if [ ! -f "${COMPOSE_FILE}" ]; then
@@ -63,6 +63,10 @@ build() {
     fi
     if ! curl -s --head --fail https://github.com > /dev/null 2>&1; then
         print_error "Cannot reach github.com. Please check your internet connection."
+        exit 1
+    fi
+    if ! curl -s --head --fail https://adoptium.net > /dev/null 2>&1; then
+        print_error "Cannot reach adoptium.net. Please check your internet connection."
         exit 1
     fi
 
