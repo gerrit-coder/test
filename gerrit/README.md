@@ -1,6 +1,6 @@
 # Gerrit Test
 
-This directory contains everything needed to deploy Gerrit v3.4.1 with the coder-workspace plugin using Docker Compose.
+This directory contains everything needed to deploy Gerrit v3.4.1 with the coder-workspace plugin using Docker Compose and the official Gerrit Docker image.
 
 ## 🚀 Quick Start
 
@@ -14,19 +14,19 @@ This directory contains everything needed to deploy Gerrit v3.4.1 with the coder
 1. **Ensure gerrit.config exists**:
    The `etc/gerrit.config` file must exist in the `etc` subdirectory. If you don't have one, you can create it or copy from the example.
 
-2. **Build the Docker image** (downloads pre-built artifacts and installs OpenJDK 21, takes 2-5 minutes):
+2. **Pull the Docker image** (downloads the official Gerrit image):
    ```bash
    ./gerrit.sh build
    ```
 
-   **Note**: This downloads pre-built files (Gerrit WAR and plugin JAR) and installs OpenJDK 21 via apt - no compilation or building of source code is performed.
+   **Note**: This pulls the official `gerritcodereview/gerrit:3.4.1` image from Docker Hub. The image is ready to use and includes all necessary dependencies.
 
 3. **Start Gerrit**:
    ```bash
    ./gerrit.sh run
    ```
 
-   **Note**: The init container (`gerrit-init`) will run first to create the required directory structure in the volume, then the main Gerrit container will start with your `etc/gerrit.config` file bind-mounted.
+   **Note**: The script will automatically download the coder-workspace plugin from GitHub releases if it doesn't already exist. The container will start with your `etc/gerrit.config` file and `plugins` directory bind-mounted. The `plugins` directory will be created automatically if it doesn't exist.
 
 4. **Access Gerrit**:
    - Web UI: http://localhost:8080
@@ -39,11 +39,8 @@ This directory contains everything needed to deploy Gerrit v3.4.1 with the coder
 The `gerrit.sh` script provides a convenient interface for managing the Gerrit container:
 
 ```bash
-# Build the Docker image (downloads pre-built artifacts, uses cache for faster rebuilds)
+# Pull the official Gerrit Docker image
 ./gerrit.sh build
-
-# Build without cache (clean download, takes slightly longer)
-./gerrit.sh build --no-cache
 
 # Check if the Docker image exists
 ./gerrit.sh check-image
@@ -63,7 +60,7 @@ The `gerrit.sh` script provides a convenient interface for managing the Gerrit c
 # Stop the container
 ./gerrit.sh stop
 
-# Clean up: remove container, image, and build cache
+# Clean up: remove container and image
 ./gerrit.sh clean
 ```
 
@@ -72,8 +69,8 @@ The `gerrit.sh` script provides a convenient interface for managing the Gerrit c
 You can also use Docker Compose commands directly:
 
 ```bash
-# Build the image
-docker-compose -f docker-compose.yml build
+# Pull the image (optional, will be pulled automatically on up)
+docker pull gerritcodereview/gerrit:3.4.1
 
 # Start services
 docker-compose -f docker-compose.yml up -d
@@ -139,7 +136,21 @@ If you don't have a `etc/gerrit.config` file yet, you can:
 
 2. **Or use the provided example** if available in the repository.
 
-**Note**: The bind mount requires the `/etc` directory to exist in the volume. This is automatically handled by the `gerrit-init` init container that runs before the main container starts.
+### Plugins Directory
+
+The `plugins` directory is **bind-mounted** from the local directory into the container. This means:
+- The `plugins` directory is automatically created when you run `./gerrit.sh run` if it doesn't exist
+- The **coder-workspace plugin is automatically downloaded** from GitHub releases when you run `./gerrit.sh run` if it doesn't already exist
+- The plugin is saved as `coder-workspace.jar` in the local `./plugins` directory
+- You can also manually place additional plugin JAR files in the `./plugins` directory
+- All plugins in the directory will be available at `/var/gerrit/review_site/plugins/` in the container
+- Plugins are automatically loaded by Gerrit on startup
+
+**Plugin Download Details:**
+- The script downloads the plugin from: `https://github.com/gerrit-coder/plugins_coder-workspace/releases`
+- The plugin is saved as `plugins/coder-workspace.jar`
+- If the plugin already exists, the download is skipped
+- The download requires internet connectivity and either `curl` or `wget` to be installed
 
 ### Environment Variables
 
@@ -148,7 +159,7 @@ You can customize the setup by modifying `docker-compose.yml`:
 ```yaml
 environment:
   - GERRIT_SITE=/var/gerrit/review_site
-  - JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+  - CANONICAL_WEB_URL=http://127.0.0.1:8080/
   # Add custom environment variables here
 ```
 
@@ -164,25 +175,17 @@ ports:
 
 ## 🔧 Troubleshooting
 
-### Build Issues
+### Image Pull Issues
 
-**Problem**: Build fails with "Cannot reach gerrit-releases.storage.googleapis.com" or "Cannot reach github.com" error
-- **Solution**: Check your internet connection. The Docker image build requires internet access to download pre-built Gerrit WAR and plugin JAR
+**Problem**: Image pull fails with "Cannot reach hub.docker.com" error
+- **Solution**: Check your internet connection. The Docker image pull requires internet access to download the official Gerrit image from Docker Hub
 
-**Problem**: Download fails or times out
-- **Solution**: Check your internet connection and firewall settings. The build downloads files from:
-  - GitHub releases: `https://github.com/gerrit-coder/plugins_coder-workspace/releases`
-  - Gerrit releases storage: `https://gerrit-releases.storage.googleapis.com`
-  - Ubuntu package repositories (for OpenJDK 21 installation via apt)
+**Problem**: Image pull fails or times out
+- **Solution**: Check your internet connection and firewall settings. The pull downloads the image from:
+  - Docker Hub: `https://hub.docker.com/r/gerritcodereview/gerrit`
 
-**Problem**: Build fails with "out of memory" errors
-- **Solution**: This is unlikely since no compilation occurs, but if it happens, increase Docker memory limit in Docker Desktop settings
-
-**Problem**: Build is slow
-- **Solution**: The build should take 2-5 minutes as it downloads pre-built artifacts (Gerrit WAR and plugin JAR) and installs OpenJDK 21 via apt. If it's slow, check your network connection. Subsequent builds will be faster due to Docker layer caching
-
-**Problem**: Want to force a clean rebuild
-- **Solution**: Use `./gerrit.sh build --no-cache` to force re-download of all artifacts
+**Problem**: Image pull is slow
+- **Solution**: The first pull may take a few minutes depending on your network connection. Subsequent pulls will be faster if the image is already cached locally
 
 ### Runtime Issues
 
@@ -213,26 +216,39 @@ ports:
   3. See the "Getting a Default Configuration" section above for instructions on obtaining a default config
 
 **Problem**: Container fails to start with mount error "not a directory"
-- **Solution**: This happens when `/var/gerrit/review_site/etc/gerrit.config` exists as a directory in the volume instead of a file. The init container now automatically removes any conflicting directory. If you still encounter this error:
+- **Solution**: This happens when `/var/gerrit/review_site/etc/gerrit.config` exists as a directory in the volume instead of a file. If you encounter this error:
   1. Stop all containers: `./gerrit.sh stop`
-  2. Remove the init container so it runs again: `docker rm gerrit-init 2>/dev/null || true`
-  3. Restart: `./gerrit.sh run` (the init container will remove the conflicting directory and recreate the structure)
-
-  If the problem persists, remove the volume completely:
-  ```bash
-  ./gerrit.sh stop
-  docker volume rm test_gerrit_site
-  ./gerrit.sh run
-  ```
+  2. Remove the volume and restart:
+     ```bash
+     ./gerrit.sh stop
+     docker volume rm test_gerrit_site
+     ./gerrit.sh run
+     ```
 
 ### Plugin Issues
 
+**Problem**: Plugin download fails
+- **Solution**:
+  1. Check internet connectivity: Ensure you can reach `https://github.com`
+  2. Verify curl or wget is installed: `curl --version` or `wget --version`
+  3. Check firewall/proxy settings that might block GitHub downloads
+  4. Manually download the plugin:
+     ```bash
+     mkdir -p plugins
+     curl -L -o plugins/coder-workspace.jar \
+       https://github.com/gerrit-coder/plugins_coder-workspace/releases/download/v1.1.0-gerrit-3.4.1/coder-workspace-v1.1.0-gerrit-3.4.1.jar
+     ```
+
 **Problem**: coder-workspace plugin not loading
 - **Solution**:
-  1. Verify plugin was downloaded: Check that `coder-workspace.jar` exists in `/var/gerrit/plugins/` inside the container
-  2. Check Gerrit logs for plugin loading errors: `./gerrit.sh logs`
-  3. Verify plugin version compatibility: The plugin version v1.1.0-gerrit-3.4.1 is compatible with Gerrit v3.4.1
-  4. Ensure the plugin is enabled in `$GERRIT_SITE/etc/gerrit.config`:
+  1. Verify plugin JAR file exists: Check that `coder-workspace.jar` exists in the local `./plugins` directory
+  2. Verify plugin is mounted: Check that the plugin appears in `/var/gerrit/review_site/plugins/` inside the container:
+     ```bash
+     docker exec gerrit ls -la /var/gerrit/review_site/plugins/
+     ```
+  3. Check Gerrit logs for plugin loading errors: `./gerrit.sh logs`
+  4. Verify plugin version compatibility: The downloaded plugin version (v1.1.0-gerrit-3.4.1) is compatible with Gerrit v3.4.1
+  5. Ensure the plugin is enabled in `./etc/gerrit.config`:
      ```
      [plugins]
        allowRemoteAdmin = true
@@ -247,7 +263,7 @@ ports:
 The easiest way to clean up:
 
 ```bash
-# Clean up container, image, and build cache
+# Clean up container and image
 ./gerrit.sh clean
 
 # Remove volumes (WARNING: This deletes all Gerrit data!)
@@ -266,20 +282,12 @@ You can also clean up manually:
 docker volume rm test_gerrit_site test_gerrit_cache
 
 # Remove the Docker image
-docker rmi gerrit:3.4.1
+docker rmi gerritcodereview/gerrit:3.4.1
 ```
 
 ## 🔗 Related Documentation
 
+- [Official Gerrit Docker Image](https://hub.docker.com/r/gerritcodereview/gerrit)
 - [Gerrit Installation Guide](https://gerrit-review.googlesource.com/Documentation/install.html)
 - [Gerrit Configuration](https://gerrit-review.googlesource.com/Documentation/config-gerrit.html)
 - [Coder Workspace Plugin](https://github.com/gerrit-coder/plugins_coder-workspace)
-
-## 🆘 Getting Help
-
-If you encounter issues:
-
-1. Check the logs: `./gerrit.sh logs`
-2. Verify container status: `./gerrit.sh status`
-3. Review the troubleshooting section above
-4. Check Gerrit documentation for configuration issues

@@ -1,45 +1,29 @@
 version: '3.8'
 
 services:
-  gerrit-init:
-    image: busybox
-    container_name: gerrit-init
-    volumes:
-      - gerrit_site:/var/gerrit/review_site
-    command: sh -c "mkdir -p /var/gerrit/review_site/etc /var/gerrit/review_site/logs && rm -rf /var/gerrit/review_site/etc/gerrit.config && touch /var/gerrit/review_site/etc/.keep"
-    restart: "no"
-
   gerrit:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: gerrit:3.4.1
+    image: gerritcodereview/gerrit:3.4.1
     container_name: gerrit
-    hostname: gerrit
-    depends_on:
-      - gerrit-init
+    restart: unless-stopped
     ports:
-      - "8080:8080"   # HTTP
-      - "29418:29418" # SSH
+      - "8080:8080"
+      - "29418:29418"
     volumes:
       - gerrit_site:/var/gerrit/review_site
       - gerrit_cache:/var/gerrit/cache
-      - type: bind
-        source: ./etc/gerrit.config
-        target: /var/gerrit/review_site/etc/gerrit.config
+      - ./etc/gerrit.config:/var/gerrit/review_site/etc/gerrit.config:ro
+      - ./plugins:/var/gerrit/review_site/plugins
     environment:
       - GERRIT_SITE=/var/gerrit/review_site
-      - JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-    restart: unless-stopped
-    networks:
-      - gerrit-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   gerrit_site:
     driver: local
   gerrit_cache:
     driver: local
-
-networks:
-  gerrit-network:
-    driver: bridge
