@@ -1,17 +1,6 @@
-# Gerrit v3.4.1 Docker Setup
+# Gerrit Test
 
 This directory contains everything needed to deploy Gerrit v3.4.1 with the coder-workspace plugin using Docker Compose.
-
-## 📋 Overview
-
-This setup provides:
-- **Multi-stage Docker image** based on Ubuntu 20.04 with OpenJDK 21
-- **Pre-built artifacts** - downloads Gerrit v3.4.1 WAR and coder-workspace plugin JAR (no compilation required)
-- **OpenJDK 21** - installed via apt package manager
-- **Configuration file** - `etc/gerrit.config` is bind-mounted from the local directory into the container
-- **Init container** - automatically creates required directory structure before the main container starts
-- **Docker Compose** configuration for easy deployment
-- **Management script** (`gerrit.sh`) for building the Docker image, running, and managing the container
 
 ## 🚀 Quick Start
 
@@ -279,24 +268,6 @@ docker volume rm test_gerrit_site test_gerrit_cache
 # Remove the Docker image
 docker rmi gerrit:3.4.1
 ```
-
-## 📝 Notes
-
-- **Base Image**: Ubuntu 20.04
-- **Java Runtime**: OpenJDK 21 installed via apt package manager at `/usr/lib/jvm/java-21-openjdk-amd64`
-- **Docker Image Build**: The Docker image build takes 2-5 minutes depending on your network speed (only downloads pre-built artifacts, no compilation)
-- **Disk Space**: Ensure you have at least 3GB free space for the Docker image build (includes JDK download)
-- **Memory**: Minimal memory requirements (no compilation or building of source code)
-- **Gerrit WAR**: Pre-built Gerrit v3.4.1 WAR is downloaded from `https://gerrit-releases.storage.googleapis.com/gerrit-3.4.1.war`
-- **Plugin**: Pre-built coder-workspace plugin v1.1.0-gerrit-3.4.1 is downloaded from GitHub releases: `https://github.com/gerrit-coder/plugins_coder-workspace/releases/download/v1.1.0-gerrit-3.4.1/coder-workspace-v1.1.0-gerrit-3.4.1.jar`
-- **JDK**: OpenJDK 21 is installed via apt package manager (openjdk-21-jdk package)
-- **No Building**: No source code is cloned or compiled - only pre-built artifacts are downloaded
-- **Auto-Initialization**: Gerrit is automatically initialized on first run with default settings
-- **Data Persistence**: Gerrit data is stored in Docker volumes and persists across container restarts
-- **Plugin Location**: The plugin JAR is installed at `/var/gerrit/plugins/coder-workspace.jar` in the container
-- **Configuration File**: The `etc/gerrit.config` file is **bind-mounted** from the local directory (`./etc/gerrit.config`) to `/var/gerrit/review_site/etc/gerrit.config` in the container. The file must exist before starting the container.
-- **Init Container**: A `gerrit-init` container (using busybox) runs before the main container to create the required `/etc` directory structure in the volume, enabling the bind mount to work correctly.
-- **Entrypoint Script**: The container uses `docker-entrypoint.sh` to ensure directory structure exists and handle Gerrit initialization if needed.
 
 ## 🔗 Related Documentation
 
