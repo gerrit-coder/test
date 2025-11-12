@@ -161,7 +161,6 @@ You can customize the setup by modifying `docker-compose.yml`:
 ```yaml
 environment:
   - GERRIT_SITE=/var/gerrit/review_site
-  - CANONICAL_WEB_URL=http://127.0.0.1:8080/
   # Add custom environment variables here
 ```
 
@@ -174,88 +173,6 @@ ports:
   - "8080:8080"   # Change first number to use different host port
   - "29418:29418" # Change first number to use different host port
 ```
-
-## 🔧 Troubleshooting
-
-### Image Pull Issues
-
-**Problem**: Image pull fails with "Cannot reach hub.docker.com" error
-- **Solution**: Check your internet connection. The Docker image pull requires internet access to download the official Gerrit image from Docker Hub
-
-**Problem**: Image pull fails or times out
-- **Solution**: Check your internet connection and firewall settings. The pull downloads the image specified in `docker-compose.yml` from Docker Hub. The image name is automatically read from the compose file.
-
-**Problem**: Image pull is slow
-- **Solution**: The first pull may take a few minutes depending on your network connection. Subsequent pulls will be faster if the image is already cached locally
-
-### Runtime Issues
-
-**Problem**: Container exits immediately
-- **Solution**: Check logs with `./gerrit.sh logs` or `docker logs gerrit`
-
-**Problem**: Cannot access Gerrit web UI
-- **Solution**:
-  1. Check if container is running: `./gerrit.sh status`
-  2. Verify port 8080 is not in use: `netstat -tuln | grep 8080`
-  3. Check firewall settings
-
-**Problem**: Gerrit initialization fails
-- **Solution**:
-  1. Check logs for specific error messages
-  2. Ensure Docker volumes have proper permissions
-  3. Try removing volumes and reinitializing:
-     ```bash
-     ./gerrit.sh stop
-     docker volume rm test_gerrit_site test_gerrit_cache
-     ./gerrit.sh run
-     ```
-
-**Problem**: Container fails to start with "gerrit.config not found" error
-- **Solution**: The local `./etc/gerrit.config` file doesn't exist. Fix by:
-  1. Create the `etc` directory if it doesn't exist: `mkdir -p etc`
-  2. Create or copy a `gerrit.config` file to the `etc` directory
-  3. See the "Getting a Default Configuration" section above for instructions on obtaining a default config
-
-**Problem**: Container fails to start with mount error "not a directory"
-- **Solution**: This happens when `/var/gerrit/review_site/etc/gerrit.config` exists as a directory in the volume instead of a file. If you encounter this error:
-  1. Stop all containers: `./gerrit.sh stop`
-  2. Remove the volume and restart:
-     ```bash
-     ./gerrit.sh stop
-     docker volume rm test_gerrit_site
-     ./gerrit.sh run
-     ```
-
-### Plugin Issues
-
-**Problem**: Plugin download fails
-- **Solution**:
-  1. Check internet connectivity: Ensure you can reach `https://github.com`
-  2. Verify curl or wget is installed: `curl --version` or `wget --version`
-  3. Check firewall/proxy settings that might block GitHub downloads
-  4. Manually download the plugin:
-     ```bash
-     mkdir -p plugins
-     curl -L -o plugins/coder-workspace.jar \
-       https://github.com/gerrit-coder/plugins_coder-workspace/releases/download/v1.1.0-gerrit-3.4.1/coder-workspace-v1.1.0-gerrit-3.4.1.jar
-     ```
-
-**Problem**: coder-workspace plugin not loading
-- **Solution**:
-  1. Verify plugin JAR file exists: Check that `coder-workspace.jar` exists in the local `./plugins` directory
-  2. Verify plugin is mounted: Check that the plugin appears in `/var/gerrit/review_site/plugins/` inside the container:
-     ```bash
-     docker exec gerrit ls -la /var/gerrit/review_site/plugins/
-     ```
-  3. Check Gerrit logs for plugin loading errors: `./gerrit.sh logs`
-  4. Verify plugin version compatibility: The downloaded plugin version (v1.1.0-gerrit-3.4.1) is compatible with Gerrit v3.4.1
-  5. Ensure the plugin is enabled in `./etc/gerrit.config`:
-     ```
-     [plugins]
-       allowRemoteAdmin = true
-     [plugin "coder-workspace"]
-       enabled = true
-     ```
 
 ## 🧹 Cleanup
 
