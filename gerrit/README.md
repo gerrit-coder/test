@@ -224,10 +224,17 @@ ports:
   3. See the "Getting a Default Configuration" section above for instructions on obtaining a default config
 
 **Problem**: Container fails to start with mount error "not a directory"
-- **Solution**: This should not happen with the init container setup. If it does:
+- **Solution**: This happens when `/var/gerrit/review_site/etc/gerrit.config` exists as a directory in the volume instead of a file. The init container now automatically removes any conflicting directory. If you still encounter this error:
   1. Stop all containers: `./gerrit.sh stop`
-  2. Remove the volume: `docker volume rm test_gerrit_site`
-  3. Restart: `./gerrit.sh run` (the init container will recreate the directory structure)
+  2. Remove the init container so it runs again: `docker rm gerrit-init 2>/dev/null || true`
+  3. Restart: `./gerrit.sh run` (the init container will remove the conflicting directory and recreate the structure)
+
+  If the problem persists, remove the volume completely:
+  ```bash
+  ./gerrit.sh stop
+  docker volume rm test_gerrit_site
+  ./gerrit.sh run
+  ```
 
 ### Plugin Issues
 

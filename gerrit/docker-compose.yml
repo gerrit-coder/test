@@ -6,7 +6,7 @@ services:
     container_name: gerrit-init
     volumes:
       - gerrit_site:/var/gerrit/review_site
-    command: sh -c "mkdir -p /var/gerrit/review_site/etc && touch /var/gerrit/review_site/etc/.keep"
+    command: sh -c "mkdir -p /var/gerrit/review_site/etc && rm -rf /var/gerrit/review_site/etc/gerrit.config && touch /var/gerrit/review_site/etc/.keep"
     restart: "no"
 
   gerrit:
