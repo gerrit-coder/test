@@ -5,9 +5,9 @@ This directory contains everything needed to deploy Gerrit v3.4.1 with the coder
 ## 📋 Overview
 
 This setup provides:
-- **Multi-stage Docker build** that downloads pre-built Gerrit v3.4.1 WAR and builds the coder-workspace plugin
+- **Multi-stage Docker image** that downloads pre-built Gerrit v3.4.1 WAR and coder-workspace plugin JAR (no compilation required)
 - **Docker Compose** configuration for easy deployment
-- **Management script** (`gerrit.sh`) for building, running, and managing the container
+- **Management script** (`gerrit.sh`) for building the Docker image, running, and managing the container
 
 ## 🚀 Quick Start
 
@@ -18,10 +18,12 @@ This setup provides:
 
 ### First Time Setup
 
-1. **Build the Docker image** (this will take 5-15 minutes to download Gerrit WAR and build the plugin):
+1. **Build the Docker image** (downloads pre-built artifacts, takes 1-3 minutes):
    ```bash
    ./gerrit.sh build
    ```
+
+   **Note**: This only downloads pre-built files - no compilation or building of source code is performed.
 
 2. **Start Gerrit**:
    ```bash
@@ -39,10 +41,10 @@ This setup provides:
 The `gerrit.sh` script provides a convenient interface for managing the Gerrit container:
 
 ```bash
-# Build the Docker image (with cache for faster builds)
+# Build the Docker image (downloads pre-built artifacts, uses cache for faster rebuilds)
 ./gerrit.sh build
 
-# Build without cache (clean build, takes longer)
+# Build without cache (clean download, takes slightly longer)
 ./gerrit.sh build --no-cache
 
 # Check if the Docker image exists
@@ -175,19 +177,21 @@ ports:
 ### Build Issues
 
 **Problem**: Build fails with "Cannot reach gerrit-releases.storage.googleapis.com" or "Cannot reach github.com" error
-- **Solution**: Check your internet connection. The build process requires internet access to download Gerrit WAR and clone the plugin repository
+- **Solution**: Check your internet connection. The Docker image build requires internet access to download pre-built Gerrit WAR and plugin JAR
 
-**Problem**: Build fails with Bazel errors when building the plugin
-- **Solution**: Ensure you have enough disk space (build requires ~3GB) and memory (recommended 4GB+). The plugin build requires the Gerrit source tree for build context
+**Problem**: Download fails or times out
+- **Solution**: Check your internet connection and firewall settings. The build downloads files from:
+  - GitHub releases: `https://github.com/gerrit-coder/plugins_coder-workspace/releases`
+  - Gerrit releases storage: `https://gerrit-releases.storage.googleapis.com`
 
 **Problem**: Build fails with "out of memory" errors
-- **Solution**: Increase Docker memory limit in Docker Desktop settings
+- **Solution**: This is unlikely since no compilation occurs, but if it happens, increase Docker memory limit in Docker Desktop settings
 
-**Problem**: Build is very slow
-- **Solution**: This is normal for the first build. Subsequent builds will be faster due to Docker layer caching. Use `./gerrit.sh build` (with cache) for faster rebuilds
+**Problem**: Build is slow
+- **Solution**: The build should be fast (1-3 minutes) as it only downloads pre-built artifacts. If it's slow, check your network connection. Subsequent builds will be faster due to Docker layer caching
 
 **Problem**: Want to force a clean rebuild
-- **Solution**: Use `./gerrit.sh build --no-cache` to rebuild everything from scratch
+- **Solution**: Use `./gerrit.sh build --no-cache` to force re-download of all artifacts
 
 ### Runtime Issues
 
@@ -222,9 +226,9 @@ ports:
 
 **Problem**: coder-workspace plugin not loading
 - **Solution**:
-  1. Verify plugin was built: Check that `coder-workspace.jar` exists in `/var/gerrit/plugins/` inside the container
+  1. Verify plugin was downloaded: Check that `coder-workspace.jar` exists in `/var/gerrit/plugins/` inside the container
   2. Check Gerrit logs for plugin loading errors: `./gerrit.sh logs`
-  3. Verify plugin compatibility with Gerrit v3.4.1 (should use branch `gerrit-3.4.1`)
+  3. Verify plugin version compatibility: The plugin version v1.1.0-gerrit-3.4.1 is compatible with Gerrit v3.4.1
   4. Ensure the plugin is enabled in `$GERRIT_SITE/etc/gerrit.config`:
      ```
      [plugins]
@@ -264,22 +268,22 @@ docker rmi gerrit:3.4.1
 
 ## 📝 Notes
 
-- **First Build**: The initial build can take 5-15 minutes depending on your system and network speed
-- **Disk Space**: Ensure you have at least 5GB free space for the build process
-- **Memory**: Recommended 4GB+ RAM for building the plugin
+- **Docker Image Build**: The Docker image build takes 1-3 minutes depending on your network speed (only downloads pre-built artifacts, no compilation)
+- **Disk Space**: Ensure you have at least 2GB free space for the Docker image build
+- **Memory**: Minimal memory requirements (no compilation or building of source code)
 - **Gerrit WAR**: Pre-built Gerrit v3.4.1 WAR is downloaded from `https://gerrit-releases.storage.googleapis.com/gerrit-3.4.1.war`
-- **Plugin**: The coder-workspace plugin is cloned from `https://github.com/gerrit-coder/plugins_coder-workspace.git` (branch `gerrit-3.4.1`) and built using Bazel
-- **Gerrit Source**: Gerrit source is cloned (but not built) to provide build context for the plugin
+- **Plugin**: Pre-built coder-workspace plugin v1.1.0-gerrit-3.4.1 is downloaded from GitHub releases: `https://github.com/gerrit-coder/plugins_coder-workspace/releases/download/v1.1.0-gerrit-3.4.1/coder-workspace-v1.1.0-gerrit-3.4.1.jar`
+- **No Building**: No source code is cloned or compiled - only pre-built artifacts are downloaded
 - **Auto-Initialization**: Gerrit is automatically initialized on first run with default settings
 - **Data Persistence**: Gerrit data is stored in Docker volumes and persists across container restarts
-- **Plugin Location**: The built plugin is installed at `/var/gerrit/plugins/coder-workspace.jar` in the container
+- **Plugin Location**: The plugin JAR is installed at `/var/gerrit/plugins/coder-workspace.jar` in the container
 - **Configuration File**: The `gerrit.config` file is mapped to `./gerrit.config` locally for easy editing. See the Configuration section for setup instructions.
 
 ## 🔗 Related Documentation
 
 - [Gerrit Installation Guide](https://gerrit-review.googlesource.com/Documentation/install.html)
 - [Gerrit Configuration](https://gerrit-review.googlesource.com/Documentation/config-gerrit.html)
-- [Building Gerrit with Bazel](https://gerrit-review.googlesource.com/Documentation/dev-bazel.html)
+- [Coder Workspace Plugin](https://github.com/gerrit-coder/plugins_coder-workspace)
 
 ## 🆘 Getting Help
 

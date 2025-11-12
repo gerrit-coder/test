@@ -41,8 +41,8 @@ build() {
     done
 
     print_info "Building Gerrit Docker image..."
-    print_info "This will download pre-built Gerrit v3.4.1 WAR and build the coder-workspace plugin"
-    print_warn "This process may take 5-15 minutes depending on your system and network speed"
+    print_info "This will download pre-built Gerrit v3.4.1 WAR and coder-workspace plugin JAR"
+    print_warn "This process may take 1-3 minutes depending on your network speed"
     cd "${SCRIPT_DIR}"
 
     if [ ! -f "${COMPOSE_FILE}" ]; then
@@ -239,7 +239,7 @@ usage() {
     echo ""
     echo "Commands:"
     echo "  build [--no-cache]  - Build the Gerrit Docker image"
-    echo "                        (downloads pre-built Gerrit v3.4.1 WAR and builds coder-workspace plugin)"
+    echo "                        (downloads pre-built Gerrit v3.4.1 WAR and coder-workspace plugin JAR)"
     echo "                        Use --no-cache for a clean build"
     echo "  run                 - Start the Gerrit container"
     echo "  restart             - Restart the Gerrit container"
