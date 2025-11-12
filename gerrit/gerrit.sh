@@ -41,7 +41,8 @@ build() {
     done
 
     print_info "Building Gerrit Docker image..."
-    print_info "This will download pre-built Gerrit v3.4.1 WAR, coder-workspace plugin JAR, and JDK 21"
+    print_info "This will download pre-built Gerrit v3.4.1 WAR and coder-workspace plugin JAR"
+    print_info "OpenJDK 21 will be installed via apt package manager"
     print_warn "This process may take 2-5 minutes depending on your network speed"
     cd "${SCRIPT_DIR}"
 
@@ -63,10 +64,6 @@ build() {
     fi
     if ! curl -s --head --fail https://github.com > /dev/null 2>&1; then
         print_error "Cannot reach github.com. Please check your internet connection."
-        exit 1
-    fi
-    if ! curl -s --head --fail https://adoptium.net > /dev/null 2>&1; then
-        print_error "Cannot reach adoptium.net. Please check your internet connection."
         exit 1
     fi
 
@@ -243,7 +240,8 @@ usage() {
     echo ""
     echo "Commands:"
     echo "  build [--no-cache]  - Build the Gerrit Docker image"
-    echo "                        (downloads pre-built Gerrit v3.4.1 WAR, coder-workspace plugin JAR, and JDK 21)"
+    echo "                        (downloads pre-built Gerrit v3.4.1 WAR and coder-workspace plugin JAR)"
+    echo "                        (installs OpenJDK 21 via apt package manager)"
     echo "                        Use --no-cache for a clean build"
     echo "  run                 - Start the Gerrit container"
     echo "  restart             - Restart the Gerrit container"

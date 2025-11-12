@@ -19,7 +19,7 @@ services:
         target: /var/gerrit/review_site/etc/gerrit.config
     environment:
       - GERRIT_SITE=/var/gerrit/review_site
-      - JAVA_HOME=/opt/jdk-21
+      - JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
     restart: unless-stopped
     networks:
       - gerrit-network

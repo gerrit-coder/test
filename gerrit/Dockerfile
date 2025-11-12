@@ -20,7 +20,7 @@ RUN wget -O gerrit.war https://gerrit-releases.storage.googleapis.com/gerrit-3.4
 RUN wget -O coder-workspace.jar https://github.com/gerrit-coder/plugins_coder-workspace/releases/download/v1.1.0-gerrit-3.4.1/coder-workspace-v1.1.0-gerrit-3.4.1.jar
 
 # Stage 2: Runtime environment
-# Using Ubuntu 20.04 with JDK 21
+# Using Ubuntu 20.04 with JDK
 FROM ubuntu:20.04
 
 # Avoid interactive prompts during package installation
@@ -34,22 +34,14 @@ RUN apt-get update && apt-get install -y \
     tar \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and install JDK 21
-# Using Eclipse Temurin JDK 21 (latest LTS build)
-# Using a more reliable approach: download latest JDK 21 LTS
-RUN mkdir -p /opt && \
-    apt-get update && apt-get install -y jq && \
-    JDK_TAG=$(curl -sL https://api.github.com/repos/adoptium/temurin21-binaries/releases/latest | jq -r '.tag_name') && \
-    ASSET_URL=$(curl -sL "https://api.github.com/repos/adoptium/temurin21-binaries/releases/tags/${JDK_TAG}" | jq -r '.assets[] | select(.name | contains("linux-x64") and contains("jdk") and contains("tar.gz")) | .browser_download_url' | head -1) && \
-    wget -O /tmp/jdk.tar.gz "$ASSET_URL" && \
-    tar -xzf /tmp/jdk.tar.gz -C /opt && \
-    JDK_DIR=$(ls -d /opt/jdk-21* | head -1) && \
-    mv "$JDK_DIR" /opt/jdk-21 && \
-    rm /tmp/jdk.tar.gz && \
-    apt-get purge -y jq && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+# Install OpenJDK 21 via apt
+RUN apt-get update && \
+    apt-get install -y openjdk-21-jdk && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set JAVA_HOME and update PATH
-ENV JAVA_HOME=/opt/jdk-21
+# OpenJDK installed via apt is typically at /usr/lib/jvm/java-21-openjdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # Create gerrit user
