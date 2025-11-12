@@ -5,8 +5,8 @@ This directory contains everything needed to deploy Gerrit v3.4.1 with the coder
 ## 📋 Overview
 
 This setup provides:
-- **Multi-stage Docker image** based on Ubuntu 20.04 with JDK 21.0.5
-- **Pre-built artifacts** - downloads Gerrit v3.4.1 WAR, coder-workspace plugin JAR, and JDK 21.0.5 (no compilation required)
+- **Multi-stage Docker image** based on Ubuntu 20.04 with JDK 21
+- **Pre-built artifacts** - downloads Gerrit v3.4.1 WAR, coder-workspace plugin JAR, and JDK 21 (no compilation required)
 - **Configuration file** - `gerrit.config` is included in the image and can be overridden via volume mount
 - **Docker Compose** configuration for easy deployment
 - **Management script** (`gerrit.sh`) for building the Docker image, running, and managing the container
@@ -20,12 +20,12 @@ This setup provides:
 
 ### First Time Setup
 
-1. **Build the Docker image** (downloads pre-built artifacts including JDK 21.0.5, takes 2-5 minutes):
+1. **Build the Docker image** (downloads pre-built artifacts including JDK 21, takes 2-5 minutes):
    ```bash
    ./gerrit.sh build
    ```
 
-   **Note**: This downloads pre-built files (Gerrit WAR, plugin JAR, and JDK 21.0.5) - no compilation or building of source code is performed.
+   **Note**: This downloads pre-built files (Gerrit WAR, plugin JAR, and JDK 21) - no compilation or building of source code is performed.
 
 2. **Start Gerrit**:
    ```bash
@@ -161,6 +161,7 @@ You can customize the setup by modifying `docker-compose.yml`:
 ```yaml
 environment:
   - GERRIT_SITE=/var/gerrit/review_site
+  - JAVA_HOME=/opt/jdk-21
   # Add custom environment variables here
 ```
 
@@ -185,13 +186,13 @@ ports:
 - **Solution**: Check your internet connection and firewall settings. The build downloads files from:
   - GitHub releases: `https://github.com/gerrit-coder/plugins_coder-workspace/releases`
   - Gerrit releases storage: `https://gerrit-releases.storage.googleapis.com`
-  - Eclipse Temurin (Adoptium): `https://github.com/adoptium/temurin21-binaries/releases` (for JDK 21.0.5)
+  - Eclipse Temurin (Adoptium): `https://github.com/adoptium/temurin21-binaries/releases` (for JDK 21)
 
 **Problem**: Build fails with "out of memory" errors
 - **Solution**: This is unlikely since no compilation occurs, but if it happens, increase Docker memory limit in Docker Desktop settings
 
 **Problem**: Build is slow
-- **Solution**: The build should take 2-5 minutes as it downloads pre-built artifacts (Gerrit WAR, plugin JAR, and JDK 21.0.5). If it's slow, check your network connection. Subsequent builds will be faster due to Docker layer caching
+- **Solution**: The build should take 2-5 minutes as it downloads pre-built artifacts (Gerrit WAR, plugin JAR, and JDK 21). If it's slow, check your network connection. Subsequent builds will be faster due to Docker layer caching
 
 **Problem**: Want to force a clean rebuild
 - **Solution**: Use `./gerrit.sh build --no-cache` to force re-download of all artifacts
@@ -272,13 +273,13 @@ docker rmi gerrit:3.4.1
 ## 📝 Notes
 
 - **Base Image**: Ubuntu 20.04
-- **Java Runtime**: JDK 21.0.5 (Eclipse Temurin/OpenJDK) installed at `/opt/jdk-21.0.5`
+- **Java Runtime**: JDK 21 (Eclipse Temurin/OpenJDK) installed at `/opt/jdk-21`
 - **Docker Image Build**: The Docker image build takes 2-5 minutes depending on your network speed (only downloads pre-built artifacts, no compilation)
 - **Disk Space**: Ensure you have at least 3GB free space for the Docker image build (includes JDK download)
 - **Memory**: Minimal memory requirements (no compilation or building of source code)
 - **Gerrit WAR**: Pre-built Gerrit v3.4.1 WAR is downloaded from `https://gerrit-releases.storage.googleapis.com/gerrit-3.4.1.war`
 - **Plugin**: Pre-built coder-workspace plugin v1.1.0-gerrit-3.4.1 is downloaded from GitHub releases: `https://github.com/gerrit-coder/plugins_coder-workspace/releases/download/v1.1.0-gerrit-3.4.1/coder-workspace-v1.1.0-gerrit-3.4.1.jar`
-- **JDK**: JDK 21.0.5 is downloaded from Eclipse Temurin (Adoptium) releases
+- **JDK**: JDK 21 is downloaded from Eclipse Temurin (Adoptium) releases
 - **No Building**: No source code is cloned or compiled - only pre-built artifacts are downloaded
 - **Auto-Initialization**: Gerrit is automatically initialized on first run with default settings
 - **Data Persistence**: Gerrit data is stored in Docker volumes and persists across container restarts
