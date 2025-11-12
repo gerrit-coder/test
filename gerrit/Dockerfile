@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     tar \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Install OpenJDK 21 via apt
@@ -64,8 +65,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # Set ownership
 RUN chown -R gerrit:gerrit /var/gerrit
 
-# Switch to gerrit user
-USER gerrit
+# Note: We don't switch to gerrit user here - the entrypoint will handle
+# permission fixes and user switching at runtime
 
 # Expose Gerrit ports
 # 8080: HTTP
