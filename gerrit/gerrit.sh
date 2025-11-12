@@ -7,8 +7,6 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.yml"
-IMAGE_NAME="gerritcodereview/gerrit:3.4.1"
-CONTAINER_NAME="gerrit"
 
 # Colors for output
 RED='\033[0;31m'
@@ -28,6 +26,41 @@ print_warn() {
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
+
+# Parse docker-compose.yml to extract image and container name
+parse_compose_config() {
+    if [ ! -f "${COMPOSE_FILE}" ]; then
+        print_error "docker-compose.yml not found at ${COMPOSE_FILE}"
+        exit 1
+    fi
+
+    # Extract image name from docker-compose.yml
+    # Look for "image:" line under services section
+    IMAGE_NAME=$(grep -A 10 "^services:" "${COMPOSE_FILE}" | grep -E "^\s+image:" | head -1 | sed 's/.*image:[[:space:]]*//' | tr -d '"' | tr -d "'")
+
+    # Extract container_name from docker-compose.yml
+    # Look for "container_name:" line under services section
+    CONTAINER_NAME=$(grep -A 10 "^services:" "${COMPOSE_FILE}" | grep -E "^\s+container_name:" | head -1 | sed 's/.*container_name:[[:space:]]*//' | tr -d '"' | tr -d "'")
+
+    # Fallback: if container_name is not set, use service name
+    if [ -z "${CONTAINER_NAME}" ]; then
+        # Get the first service name
+        CONTAINER_NAME=$(grep -E "^\s+[a-zA-Z0-9_-]+:" "${COMPOSE_FILE}" | grep -v "version:" | grep -v "services:" | head -1 | sed 's/[[:space:]]*\([^:]*\):.*/\1/' | tr -d ' ')
+    fi
+
+    if [ -z "${IMAGE_NAME}" ]; then
+        print_error "Could not extract image name from ${COMPOSE_FILE}"
+        exit 1
+    fi
+
+    if [ -z "${CONTAINER_NAME}" ]; then
+        print_error "Could not extract container name from ${COMPOSE_FILE}"
+        exit 1
+    fi
+}
+
+# Initialize configuration
+parse_compose_config
 
 # Download the coder-workspace plugin
 download_plugin() {
@@ -101,8 +134,8 @@ build() {
         exit 1
     fi
 
-    print_info "Pulling Docker image..."
-    docker pull "${IMAGE_NAME}"
+    print_info "Pulling Docker image using docker-compose..."
+    docker-compose -f "${COMPOSE_FILE}" pull
 
     if [ $? -eq 0 ]; then
         print_info "Gerrit Docker image pulled successfully!"
@@ -272,8 +305,7 @@ usage() {
     echo "Usage: $0 {build|run|restart|stop|status|logs|clean|check-image}"
     echo ""
     echo "Commands:"
-    echo "  build               - Pull the official Gerrit Docker image"
-    echo "                        (gerritcodereview/gerrit:3.4.1)"
+    echo "  build               - Pull the Docker image from docker-compose.yml"
     echo "  run                 - Start the Gerrit container"
     echo "  restart             - Restart the Gerrit container"
     echo "  stop                - Stop the Gerrit container"

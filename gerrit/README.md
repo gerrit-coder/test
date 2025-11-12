@@ -19,7 +19,7 @@ This directory contains everything needed to deploy Gerrit v3.4.1 with the coder
    ./gerrit.sh build
    ```
 
-   **Note**: This pulls the official `gerritcodereview/gerrit:3.4.1` image from Docker Hub. The image is ready to use and includes all necessary dependencies.
+   **Note**: This uses `docker-compose pull` to pull the image specified in `docker-compose.yml` from Docker Hub. The image is ready to use and includes all necessary dependencies.
 
 3. **Start Gerrit**:
    ```bash
@@ -39,7 +39,7 @@ This directory contains everything needed to deploy Gerrit v3.4.1 with the coder
 The `gerrit.sh` script provides a convenient interface for managing the Gerrit container:
 
 ```bash
-# Pull the official Gerrit Docker image
+# Pull the Docker image from docker-compose.yml
 ./gerrit.sh build
 
 # Check if the Docker image exists
@@ -70,7 +70,7 @@ You can also use Docker Compose commands directly:
 
 ```bash
 # Pull the image (optional, will be pulled automatically on up)
-docker pull gerritcodereview/gerrit:3.4.1
+docker-compose -f docker-compose.yml pull
 
 # Start services
 docker-compose -f docker-compose.yml up -d
@@ -84,6 +84,8 @@ docker-compose -f docker-compose.yml down
 # Restart services
 docker-compose -f docker-compose.yml restart
 ```
+
+**Note**: The `gerrit.sh` script automatically reads the image name and container name from `docker-compose.yml`, so you can update these values in the compose file and the script will use them automatically.
 
 ## ⚙️ Configuration
 
@@ -181,8 +183,7 @@ ports:
 - **Solution**: Check your internet connection. The Docker image pull requires internet access to download the official Gerrit image from Docker Hub
 
 **Problem**: Image pull fails or times out
-- **Solution**: Check your internet connection and firewall settings. The pull downloads the image from:
-  - Docker Hub: `https://hub.docker.com/r/gerritcodereview/gerrit`
+- **Solution**: Check your internet connection and firewall settings. The pull downloads the image specified in `docker-compose.yml` from Docker Hub. The image name is automatically read from the compose file.
 
 **Problem**: Image pull is slow
 - **Solution**: The first pull may take a few minutes depending on your network connection. Subsequent pulls will be faster if the image is already cached locally
@@ -281,8 +282,9 @@ You can also clean up manually:
 # Remove volumes (WARNING: This deletes all Gerrit data!)
 docker volume rm test_gerrit_site test_gerrit_cache
 
-# Remove the Docker image
-docker rmi gerritcodereview/gerrit:3.4.1
+# Remove the Docker image (image name is read from docker-compose.yml)
+# Check the image name first: ./gerrit.sh check-image
+# Then remove it: docker rmi <image-name>
 ```
 
 ## 🔗 Related Documentation
