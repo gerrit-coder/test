@@ -164,10 +164,47 @@ The `code-server.tf` file includes:
 - Flexible configuration via Terraform variables
 - Host networking for the workspace container so `127.0.0.1:3000` reaches the host Coder server
 - Direct agent startup with provided URL/token (no probing required in normal cases)
+- Automatic git repository cloning and cherry-pick support (see [Git Repository Cloning](#git-repository-cloning) below)
 
 **Terraform Variables:**
 - `coder_access_url` - Uses `CODER_ACCESS_URL` from environment
 - `gerrit_url` - Uses `GERRIT_URL` from environment
+
+### 4. Git Repository Cloning
+
+The `code-server.tf` template automatically clones Gerrit repositories and cherry-picks patchsets when workspaces are created from Gerrit changes. This feature uses rich parameters passed from the coder-workspace plugin.
+
+**How It Works:**
+1. When a workspace is created from a Gerrit change, the coder-workspace plugin passes rich parameters:
+   - `GERRIT_GIT_HTTP_URL` or `GERRIT_GIT_SSH_URL`: Git repository URL
+   - `GERRIT_CHANGE_REF`: Patchset ref (e.g., `refs/changes/45/12345/2`)
+   - `REPO`: Repository name (used as directory name)
+   - `GERRIT_CHANGE` and `GERRIT_PATCHSET`: Change and patchset numbers
+
+2. The startup script in `code-server.tf` automatically:
+   - Installs git if not already present
+   - Clones the repository using the provided git URL
+   - Fetches and cherry-picks the patchset
+   - Handles existing repositories gracefully
+   - Provides helpful error messages for conflicts
+
+**Features:**
+- ✅ Automatic git installation
+- ✅ Smart repository handling (clones new, updates existing)
+- ✅ Automatic cherry-pick of patchsets
+- ✅ Conflict detection and helpful error messages
+- ✅ Works with both HTTP and SSH git URLs
+
+**Repository Location:**
+- Default directory: `gerrit-repo` (or uses `REPO` rich parameter value)
+- Located in workspace home directory: `/home/coder/gerrit-repo`
+
+**Troubleshooting Git Operations:**
+- If cherry-pick fails due to conflicts, the repository will be in a cherry-pick state
+- Run `git status` in the repository directory to see conflict details
+- Resolve conflicts manually and run `git cherry-pick --continue`
+- For authentication issues with HTTP URLs, ensure credentials are configured (`.netrc` or git credential helper)
+- For SSH URLs, ensure SSH keys are configured in the workspace
 
 ### 5. Template Deployment
 
@@ -181,6 +218,31 @@ The `template.sh` script deploys a VS Code workspace template:
 - ✅ Skips deployment if no token provided (with helpful message)
 
 ## 🔧 Troubleshooting
+
+### Git Cloning Issues
+
+If the repository cloning or cherry-pick fails:
+
+```bash
+# Check if rich parameters are being passed
+# In the workspace, check environment variables:
+docker exec -it coder-workspace-<name>-0 env | grep GERRIT
+
+# Verify git is installed in the workspace
+docker exec -it coder-workspace-<name>-0 git --version
+
+# Check repository status
+docker exec -it coder-workspace-<name>-0 bash -c "cd gerrit-repo && git status"
+
+# View startup script logs
+docker exec -it coder-workspace-<name>-0 cat /tmp/code-server.log
+```
+
+**Common Issues:**
+- **Authentication failures**: Configure git credentials for HTTP URLs or SSH keys for SSH URLs
+- **Cherry-pick conflicts**: Resolve manually in the repository directory
+- **Missing rich parameters**: Ensure the coder-workspace plugin is properly configured in Gerrit
+- **Repository already exists**: The script will update existing repositories automatically
 
 ### Environment Variable Issues
 
@@ -342,6 +404,10 @@ Use the values from step 2 in your Gerrit configuration:
 - Open a change in Gerrit
 - Click "Open Coder Workspace" in the overflow menu
 - Check browser console for any errors
+- Verify the repository is cloned and cherry-picked:
+  - Open the workspace in VS Code
+  - Check for `gerrit-repo` directory in the workspace
+  - Verify the patchset is cherry-picked: `cd gerrit-repo && git log --oneline -5`
 
 ## 🧹 Cleanup
 
