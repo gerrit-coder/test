@@ -83,9 +83,9 @@ resource "coder_agent" "main" {
 
     # Clone Gerrit repository and cherry-pick patchset if parameters are provided
     # These environment variables are passed as rich parameters from the coder-workspace plugin
-    if [ -n "${GERRIT_GIT_HTTP_URL}" ] || [ -n "${GERRIT_GIT_SSH_URL}" ]; then
-      REPO_DIR="${REPO:-gerrit-repo}"
-      GIT_URL="${GERRIT_GIT_HTTP_URL:-${GERRIT_GIT_SSH_URL}}"
+    if [ -n "$${GERRIT_GIT_HTTP_URL}" ] || [ -n "$${GERRIT_GIT_SSH_URL}" ]; then
+      REPO_DIR="$${REPO:-gerrit-repo}"
+      GIT_URL="$${GERRIT_GIT_HTTP_URL:-$${GERRIT_GIT_SSH_URL}}"
 
       echo "Cloning Gerrit repository from $GIT_URL..."
 
@@ -98,21 +98,21 @@ resource "coder_agent" "main" {
         git fetch origin || true
 
         # If change ref is provided, fetch and cherry-pick it
-        if [ -n "${GERRIT_CHANGE_REF}" ]; then
-          echo "Fetching patchset ${GERRIT_CHANGE_REF}..."
-          git fetch origin "${GERRIT_CHANGE_REF}" || {
-            echo "Warning: Failed to fetch ${GERRIT_CHANGE_REF}"
+        if [ -n "$${GERRIT_CHANGE_REF}" ]; then
+          echo "Fetching patchset $${GERRIT_CHANGE_REF}..."
+          git fetch origin "$${GERRIT_CHANGE_REF}" || {
+            echo "Warning: Failed to fetch $${GERRIT_CHANGE_REF}"
           }
 
           # Check if already cherry-picked
-          if ! git log --oneline --grep="Cherry picked from" | grep -q "${GERRIT_CHANGE_REF}"; then
-            echo "Cherry-picking patchset ${GERRIT_CHANGE_REF}..."
+          if ! git log --oneline --grep="Cherry picked from" | grep -q "$${GERRIT_CHANGE_REF}"; then
+            echo "Cherry-picking patchset $${GERRIT_CHANGE_REF}..."
             git cherry-pick FETCH_HEAD || {
               echo "Cherry-pick failed. Repository is in cherry-pick state."
               echo "Run 'git status' to see details and resolve conflicts manually."
             }
           else
-            echo "Patchset ${GERRIT_CHANGE_REF} already cherry-picked."
+            echo "Patchset $${GERRIT_CHANGE_REF} already cherry-picked."
           fi
         fi
       else
@@ -125,14 +125,14 @@ resource "coder_agent" "main" {
         cd "$REPO_DIR"
 
         # If change ref is provided, fetch and cherry-pick it
-        if [ -n "${GERRIT_CHANGE_REF}" ]; then
-          echo "Fetching patchset ${GERRIT_CHANGE_REF}..."
-          git fetch origin "${GERRIT_CHANGE_REF}" || {
-            echo "Error: Failed to fetch patchset ${GERRIT_CHANGE_REF}"
+        if [ -n "$${GERRIT_CHANGE_REF}" ]; then
+          echo "Fetching patchset $${GERRIT_CHANGE_REF}..."
+          git fetch origin "$${GERRIT_CHANGE_REF}" || {
+            echo "Error: Failed to fetch patchset $${GERRIT_CHANGE_REF}"
             exit 1
           }
 
-          echo "Cherry-picking patchset ${GERRIT_CHANGE_REF}..."
+          echo "Cherry-picking patchset $${GERRIT_CHANGE_REF}..."
           git cherry-pick FETCH_HEAD || {
             echo "Cherry-pick failed. Repository is in cherry-pick state."
             echo "Run 'git status' to see details and resolve conflicts manually."
@@ -140,7 +140,7 @@ resource "coder_agent" "main" {
         fi
 
         echo "Repository cloned and ready at: $(pwd)"
-        echo "Change: ${GERRIT_CHANGE:-unknown}, Patchset: ${GERRIT_PATCHSET:-unknown}"
+        echo "Change: $${GERRIT_CHANGE:-unknown}, Patchset: $${GERRIT_PATCHSET:-unknown}"
       fi
 
       # Return to home directory

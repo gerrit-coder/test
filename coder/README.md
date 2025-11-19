@@ -170,6 +170,29 @@ The `code-server.tf` file includes:
 - `coder_access_url` - Uses `CODER_ACCESS_URL` from environment
 - `gerrit_url` - Uses `GERRIT_URL` from environment
 
+**Important: Terraform Interpolation Escaping**
+
+When writing shell scripts inside Terraform heredoc strings (like the `startup_script`), shell variable references must be escaped to prevent Terraform from interpreting them as Terraform interpolation expressions:
+
+- Use `$${VAR}` instead of `${VAR}` for shell variables
+- Use `$${VAR:-default}` instead of `${VAR:-default}` for shell variable substitution with defaults
+- This tells Terraform to output a literal `${}` in the generated script, which the shell will then interpret
+
+**Example:**
+```hcl
+# ❌ Wrong - Terraform will try to interpolate this
+startup_script = <<-EOT
+  REPO_DIR="${REPO:-gerrit-repo}"
+EOT
+
+# ✅ Correct - Escaped for shell variable substitution
+startup_script = <<-EOT
+  REPO_DIR="$${REPO:-gerrit-repo}"
+EOT
+```
+
+If you see errors like "Invalid character" or "Extra characters after interpolation expression" when running `coder templates push`, check that all shell variables in heredoc strings are properly escaped with `$${}`.
+
 ### 4. Git Repository Cloning
 
 The `code-server.tf` template automatically clones Gerrit repositories and cherry-picks patchsets when workspaces are created from Gerrit changes. This feature uses rich parameters passed from the coder-workspace plugin.
@@ -299,6 +322,36 @@ docker exec coder-server /opt/coder templates list
 
 # Redeploy template
 ./template.sh
+```
+
+### Terraform Template Parsing Errors
+
+If you encounter errors when running `coder templates push`:
+
+**Error: "Invalid character" or "Extra characters after interpolation expression"**
+
+This typically occurs when shell variables in heredoc strings are not properly escaped. Terraform interprets `${}` as interpolation syntax, so shell variables must be escaped:
+
+```bash
+# Check for unescaped shell variables in code-server.tf
+grep -n '\${[^$]' code-server.tf
+
+# All shell variables should use $${} instead of ${}
+# Example: $${GERRIT_CHANGE_REF} instead of ${GERRIT_CHANGE_REF}
+```
+
+**Common fixes:**
+- Replace `${VAR}` with `$${VAR}` in heredoc strings
+- Replace `${VAR:-default}` with `$${VAR:-default}` for shell variable substitution
+- Ensure nested variables are also escaped: `$${VAR1:-$${VAR2}}`
+
+**Validate Terraform syntax:**
+```bash
+# Check Terraform syntax
+terraform fmt -check code-server.tf
+
+# Format Terraform files
+terraform fmt code-server.tf
 ```
 
 ## 🌐 Browser Development Setup
