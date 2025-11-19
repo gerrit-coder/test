@@ -58,6 +58,43 @@ variable "coder_session_token" {
   sensitive   = true
 }
 
+# Rich parameters from coder-workspace plugin
+variable "GERRIT_GIT_HTTP_URL" {
+  description = "Gerrit git repository HTTP URL"
+  type        = string
+  default     = ""
+}
+
+variable "GERRIT_GIT_SSH_URL" {
+  description = "Gerrit git repository SSH URL"
+  type        = string
+  default     = ""
+}
+
+variable "GERRIT_CHANGE_REF" {
+  description = "Gerrit change ref for patchset"
+  type        = string
+  default     = ""
+}
+
+variable "GERRIT_CHANGE" {
+  description = "Gerrit change number"
+  type        = string
+  default     = ""
+}
+
+variable "GERRIT_PATCHSET" {
+  description = "Gerrit patchset number"
+  type        = string
+  default     = ""
+}
+
+variable "REPO" {
+  description = "Repository directory name"
+  type        = string
+  default     = ""
+}
+
 resource "coder_agent" "main" {
   arch           = "amd64"
   os             = "linux"
@@ -193,7 +230,14 @@ resource "docker_container" "workspace" {
     # Additional Environment Variables
     "GERRIT_URL=${var.gerrit_url}",
     "CODER_PORT=${var.coder_port}",
-    "CODER_SESSION_TOKEN=${var.coder_session_token}"
+    "CODER_SESSION_TOKEN=${var.coder_session_token}",
+    # Gerrit rich parameters from coder-workspace plugin
+    "GERRIT_GIT_HTTP_URL=${var.GERRIT_GIT_HTTP_URL}",
+    "GERRIT_GIT_SSH_URL=${var.GERRIT_GIT_SSH_URL}",
+    "GERRIT_CHANGE_REF=${var.GERRIT_CHANGE_REF}",
+    "GERRIT_CHANGE=${var.GERRIT_CHANGE}",
+    "GERRIT_PATCHSET=${var.GERRIT_PATCHSET}",
+    "REPO=${var.REPO}"
   ]
 
   # Bootstrap and run the Coder agent; it will execute startup_script above

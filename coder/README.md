@@ -169,6 +169,7 @@ The `code-server.tf` file includes:
 **Terraform Variables:**
 - `coder_access_url` - Uses `CODER_ACCESS_URL` from environment
 - `gerrit_url` - Uses `GERRIT_URL` from environment
+- `GERRIT_GIT_HTTP_URL`, `GERRIT_GIT_SSH_URL`, `GERRIT_CHANGE_REF`, `GERRIT_CHANGE`, `GERRIT_PATCHSET`, `REPO` - Rich parameters from coder-workspace plugin (automatically passed when workspace is created from Gerrit change)
 
 **Important: Terraform Interpolation Escaping**
 
@@ -204,7 +205,12 @@ The `code-server.tf` template automatically clones Gerrit repositories and cherr
    - `REPO`: Repository name (used as directory name)
    - `GERRIT_CHANGE` and `GERRIT_PATCHSET`: Change and patchset numbers
 
-2. The startup script in `code-server.tf` automatically:
+2. The Terraform template (`code-server.tf`) declares these as variables and passes them to the Docker container as environment variables:
+   - All Gerrit-related rich parameters are declared as Terraform variables with default empty strings
+   - These variables are included in the Docker container's `env` array
+   - This ensures the environment variables are available to the startup script
+
+3. The startup script in `code-server.tf` automatically:
    - Installs git if not already present
    - Clones the repository using the provided git URL
    - Fetches and cherry-picks the patchset
@@ -264,7 +270,11 @@ docker exec -it coder-workspace-<name>-0 cat /tmp/code-server.log
 **Common Issues:**
 - **Authentication failures**: Configure git credentials for HTTP URLs or SSH keys for SSH URLs
 - **Cherry-pick conflicts**: Resolve manually in the repository directory
-- **Missing rich parameters**: Ensure the coder-workspace plugin is properly configured in Gerrit
+- **Missing rich parameters**:
+  - Ensure the coder-workspace plugin is properly configured in Gerrit
+  - Verify that rich parameters are declared as Terraform variables in `code-server.tf`
+  - Check that environment variables are passed to the Docker container in the `env` array
+  - If you see "No Gerrit git repository URL provided", verify the rich parameters are being passed from the plugin
 - **Repository already exists**: The script will update existing repositories automatically
 
 ### Environment Variable Issues
