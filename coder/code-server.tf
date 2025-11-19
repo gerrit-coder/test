@@ -59,48 +59,79 @@ variable "coder_session_token" {
 }
 
 # Rich parameters from coder-workspace plugin
-variable "GERRIT_GIT_HTTP_URL" {
+# These are accessed via data sources, not variables
+data "coder_parameter" "gerrit_git_http_url" {
+  name        = "GERRIT_GIT_HTTP_URL"
   description = "Gerrit git repository HTTP URL"
-  type        = string
+  type        = "string"
   default     = ""
+  mutable     = false
 }
 
-variable "GERRIT_GIT_SSH_URL" {
+data "coder_parameter" "gerrit_git_ssh_url" {
+  name        = "GERRIT_GIT_SSH_URL"
   description = "Gerrit git repository SSH URL"
-  type        = string
+  type        = "string"
   default     = ""
+  mutable     = false
 }
 
-variable "GERRIT_CHANGE_REF" {
+data "coder_parameter" "gerrit_change_ref" {
+  name        = "GERRIT_CHANGE_REF"
   description = "Gerrit change ref for patchset"
-  type        = string
+  type        = "string"
   default     = ""
+  mutable     = false
 }
 
-variable "GERRIT_CHANGE" {
+data "coder_parameter" "gerrit_change" {
+  name        = "GERRIT_CHANGE"
   description = "Gerrit change number"
-  type        = string
+  type        = "string"
   default     = ""
+  mutable     = false
 }
 
-variable "GERRIT_PATCHSET" {
+data "coder_parameter" "gerrit_patchset" {
+  name        = "GERRIT_PATCHSET"
   description = "Gerrit patchset number"
-  type        = string
+  type        = "string"
   default     = ""
+  mutable     = false
 }
 
-variable "REPO" {
+data "coder_parameter" "repo" {
+  name        = "REPO"
   description = "Repository directory name"
-  type        = string
+  type        = "string"
   default     = ""
+  mutable     = false
 }
 
 resource "coder_agent" "main" {
   arch           = "amd64"
   os             = "linux"
+  env = {
+    GERRIT_GIT_HTTP_URL = data.coder_parameter.gerrit_git_http_url.value
+    GERRIT_GIT_SSH_URL  = data.coder_parameter.gerrit_git_ssh_url.value
+    GERRIT_CHANGE_REF   = data.coder_parameter.gerrit_change_ref.value
+    GERRIT_CHANGE       = data.coder_parameter.gerrit_change.value
+    GERRIT_PATCHSET     = data.coder_parameter.gerrit_patchset.value
+    REPO                = data.coder_parameter.repo.value
+  }
   startup_script = <<-EOT
     #!/bin/sh
     set -e
+
+    # Debug: Print environment variables for troubleshooting
+    echo "=== Debug: Gerrit Environment Variables ==="
+    echo "GERRIT_GIT_HTTP_URL: $${GERRIT_GIT_HTTP_URL:-<not set>}"
+    echo "GERRIT_GIT_SSH_URL: $${GERRIT_GIT_SSH_URL:-<not set>}"
+    echo "GERRIT_CHANGE_REF: $${GERRIT_CHANGE_REF:-<not set>}"
+    echo "GERRIT_CHANGE: $${GERRIT_CHANGE:-<not set>}"
+    echo "GERRIT_PATCHSET: $${GERRIT_PATCHSET:-<not set>}"
+    echo "REPO: $${REPO:-<not set>}"
+    echo "============================================"
 
     # Install code-server if not already installed
     if [ ! -f /home/coder/.local/bin/code-server ]; then
@@ -118,11 +149,43 @@ resource "coder_agent" "main" {
       echo "git already installed"
     fi
 
+    # Configure git to not use Coder's askpass for Gerrit URLs
+    # This prevents authentication errors when cloning from Gerrit
+    git config --global credential.helper ""
+    # Disable Coder's askpass for Gerrit URLs
+    if [ -n "$$GIT_ASKPASS" ]; then
+      unset GIT_ASKPASS
+    fi
+    export GIT_ASKPASS=""
+
     # Clone Gerrit repository and cherry-pick patchset if parameters are provided
     # These environment variables are passed as rich parameters from the coder-workspace plugin
     if [ -n "$${GERRIT_GIT_HTTP_URL}" ] || [ -n "$${GERRIT_GIT_SSH_URL}" ]; then
       REPO_DIR="$${REPO:-gerrit-repo}"
-      GIT_URL="$${GERRIT_GIT_HTTP_URL:-$${GERRIT_GIT_SSH_URL}}"
+
+      # Prefer SSH URL if available (doesn't require authentication)
+      if [ -n "$${GERRIT_GIT_SSH_URL}" ]; then
+        GIT_URL="$${GERRIT_GIT_SSH_URL}"
+        echo "Using SSH URL for cloning (no authentication required)"
+      else
+        GIT_URL="$${GERRIT_GIT_HTTP_URL}"
+        echo "Using HTTP URL for cloning"
+      fi
+
+      # Construct changeRef if we have change and patchset but changeRef is missing
+      if [ -z "$${GERRIT_CHANGE_REF}" ] && [ -n "$${GERRIT_CHANGE}" ] && [ -n "$${GERRIT_PATCHSET}" ]; then
+        CHANGE_NUM="$${GERRIT_CHANGE}"
+        PATCHSET="$${GERRIT_PATCHSET}"
+        # Calculate last two digits of change number (e.g., 12345 -> 45)
+        # Use sed to extract last 2 digits, or pad with zero if single digit
+        LAST_TWO="$$(echo "$$CHANGE_NUM" | sed 's/.*\(..\)$/\1/')"
+        if [ "$$(echo -n "$$CHANGE_NUM" | wc -c)" -lt 2 ]; then
+          LAST_TWO="$$(printf "%02d" "$$CHANGE_NUM")"
+        fi
+        GERRIT_CHANGE_REF="refs/changes/$$LAST_TWO/$$CHANGE_NUM/$$PATCHSET"
+        echo "Constructed GERRIT_CHANGE_REF: $${GERRIT_CHANGE_REF}"
+        export GERRIT_CHANGE_REF
+      fi
 
       echo "Cloning Gerrit repository from $GIT_URL..."
 
@@ -154,8 +217,22 @@ resource "coder_agent" "main" {
         fi
       else
         # Clone the repository
+        # For HTTP URLs, configure git to skip authentication prompts
+        if echo "$GIT_URL" | grep -q "^http"; then
+          # Configure git credential helper to store or cache credentials
+          # Use empty helper to disable askpass, or configure .netrc if available
+          GIT_CREDENTIAL_HELPER=""
+          if [ -f "$HOME/.netrc" ]; then
+            echo "Using .netrc for authentication"
+          else
+            echo "Warning: No .netrc found. HTTP cloning may require manual authentication."
+            echo "Consider using SSH URL or configuring git credentials."
+          fi
+        fi
+
         git clone "$GIT_URL" "$REPO_DIR" || {
           echo "Error: Failed to clone repository"
+          echo "If using HTTP URL, you may need to configure git credentials or use SSH URL"
           exit 1
         }
 
@@ -232,12 +309,12 @@ resource "docker_container" "workspace" {
     "CODER_PORT=${var.coder_port}",
     "CODER_SESSION_TOKEN=${var.coder_session_token}",
     # Gerrit rich parameters from coder-workspace plugin
-    "GERRIT_GIT_HTTP_URL=${var.GERRIT_GIT_HTTP_URL}",
-    "GERRIT_GIT_SSH_URL=${var.GERRIT_GIT_SSH_URL}",
-    "GERRIT_CHANGE_REF=${var.GERRIT_CHANGE_REF}",
-    "GERRIT_CHANGE=${var.GERRIT_CHANGE}",
-    "GERRIT_PATCHSET=${var.GERRIT_PATCHSET}",
-    "REPO=${var.REPO}"
+    "GERRIT_GIT_HTTP_URL=${data.coder_parameter.gerrit_git_http_url.value}",
+    "GERRIT_GIT_SSH_URL=${data.coder_parameter.gerrit_git_ssh_url.value}",
+    "GERRIT_CHANGE_REF=${data.coder_parameter.gerrit_change_ref.value}",
+    "GERRIT_CHANGE=${data.coder_parameter.gerrit_change.value}",
+    "GERRIT_PATCHSET=${data.coder_parameter.gerrit_patchset.value}",
+    "REPO=${data.coder_parameter.repo.value}"
   ]
 
   # Bootstrap and run the Coder agent; it will execute startup_script above

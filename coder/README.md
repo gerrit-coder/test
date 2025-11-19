@@ -169,7 +169,11 @@ The `code-server.tf` file includes:
 **Terraform Variables:**
 - `coder_access_url` - Uses `CODER_ACCESS_URL` from environment
 - `gerrit_url` - Uses `GERRIT_URL` from environment
+
+**Rich Parameters (via `data "coder_parameter"`):**
 - `GERRIT_GIT_HTTP_URL`, `GERRIT_GIT_SSH_URL`, `GERRIT_CHANGE_REF`, `GERRIT_CHANGE`, `GERRIT_PATCHSET`, `REPO` - Rich parameters from coder-workspace plugin (automatically passed when workspace is created from Gerrit change)
+- These are accessed via `data "coder_parameter"` data sources, not Terraform variables
+- Coder automatically populates these data sources with values from the rich parameters sent by the plugin
 
 **Important: Terraform Interpolation Escaping**
 
@@ -205,13 +209,17 @@ The `code-server.tf` template automatically clones Gerrit repositories and cherr
    - `REPO`: Repository name (used as directory name)
    - `GERRIT_CHANGE` and `GERRIT_PATCHSET`: Change and patchset numbers
 
-2. The Terraform template (`code-server.tf`) declares these as variables and passes them to the Docker container as environment variables:
-   - All Gerrit-related rich parameters are declared as Terraform variables with default empty strings
-   - These variables are included in the Docker container's `env` array
+2. The Terraform template (`code-server.tf`) accesses these via `data "coder_parameter"` data sources and passes them to the agent and Docker container:
+   - All Gerrit-related rich parameters are declared as `data "coder_parameter"` blocks
+   - These are passed to the `coder_agent` via the `env` attribute
+   - They are also included in the Docker container's `env` array
    - This ensures the environment variables are available to the startup script
 
 3. The startup script in `code-server.tf` automatically:
+   - Configures git to disable Coder's askpass (prevents authentication conflicts)
+   - Prefers SSH URLs over HTTP URLs when both are available (SSH doesn't require authentication)
    - Installs git if not already present
+   - Auto-constructs `GERRIT_CHANGE_REF` from `GERRIT_CHANGE` and `GERRIT_PATCHSET` if missing
    - Clones the repository using the provided git URL
    - Fetches and cherry-picks the patchset
    - Handles existing repositories gracefully
@@ -219,21 +227,16 @@ The `code-server.tf` template automatically clones Gerrit repositories and cherr
 
 **Features:**
 - ✅ Automatic git installation
+- ✅ Git authentication handling (disables Coder's askpass, prefers SSH URLs)
+- ✅ Auto-construction of `GERRIT_CHANGE_REF` from change and patchset numbers if missing
 - ✅ Smart repository handling (clones new, updates existing)
 - ✅ Automatic cherry-pick of patchsets
 - ✅ Conflict detection and helpful error messages
-- ✅ Works with both HTTP and SSH git URLs
+- ✅ Works with both HTTP and SSH git URLs (SSH preferred when available)
 
 **Repository Location:**
 - Default directory: `gerrit-repo` (or uses `REPO` rich parameter value)
 - Located in workspace home directory: `/home/coder/gerrit-repo`
-
-**Troubleshooting Git Operations:**
-- If cherry-pick fails due to conflicts, the repository will be in a cherry-pick state
-- Run `git status` in the repository directory to see conflict details
-- Resolve conflicts manually and run `git cherry-pick --continue`
-- For authentication issues with HTTP URLs, ensure credentials are configured (`.netrc` or git credential helper)
-- For SSH URLs, ensure SSH keys are configured in the workspace
 
 ### 5. Template Deployment
 
@@ -268,14 +271,17 @@ docker exec -it coder-workspace-<name>-0 cat /tmp/code-server.log
 ```
 
 **Common Issues:**
-- **Authentication failures**: Configure git credentials for HTTP URLs or SSH keys for SSH URLs
+- **Authentication failures**:
+  - The script automatically disables Coder's askpass and prefers SSH URLs
+  - For HTTP URLs, configure git credentials (`.netrc` or git credential helper)
+  - For SSH URLs, ensure SSH keys are configured in the workspace
 - **Cherry-pick conflicts**: Resolve manually in the repository directory
 - **Missing rich parameters**:
   - Ensure the coder-workspace plugin is properly configured in Gerrit
-  - Verify that rich parameters are declared as Terraform variables in `code-server.tf`
-  - Check that environment variables are passed to the Docker container in the `env` array
+  - Verify that rich parameters are declared as `data "coder_parameter"` blocks in `code-server.tf`
+  - Check that environment variables are passed to both the `coder_agent` and Docker container
   - If you see "No Gerrit git repository URL provided", verify the rich parameters are being passed from the plugin
-- **Repository already exists**: The script will update existing repositories automatically
+  - Check the debug output at the start of the startup script to see which parameters are set
 
 ### Environment Variable Issues
 
