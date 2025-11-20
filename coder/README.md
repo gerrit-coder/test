@@ -83,6 +83,10 @@ Configure your Gerrit plugin with the values from your environment:
   openAfterCreate = true
   enableDryRunPreview = false
   ttlMs = 0
+  # Enable/disable repository cloning (default: true)
+  # When enabled, git-related rich parameters (GERRIT_GIT_SSH_URL, GERRIT_CHANGE_REF)
+  # are passed to the workspace template, enabling automatic repository cloning.
+  enableCloneRepository = true
 ```
 
 ## 📁 Files Overview
@@ -173,6 +177,7 @@ The `code-server.tf` file includes:
 - `GERRIT_GIT_SSH_URL`, `GERRIT_CHANGE_REF`, `GERRIT_CHANGE`, `GERRIT_PATCHSET`, `REPO` - Rich parameters from coder-workspace plugin (automatically passed when workspace is created from Gerrit change)
 - These are accessed via `data "coder_parameter"` data sources, not Terraform variables
 - Coder automatically populates these data sources with values from the rich parameters sent by the plugin
+- **Note:** Git-related parameters (`GERRIT_GIT_SSH_URL` and `GERRIT_CHANGE_REF`) are only included when `enableCloneRepository = true` (default) in the Gerrit plugin configuration. If disabled, these parameters will be empty and the template will skip cloning.
 - **Note:** The plugin only supports SSH cloning. Ensure SSH keys are configured in your workspace for Gerrit access.
 
 **Important: Terraform Interpolation Escaping**
@@ -202,8 +207,13 @@ If you see errors like "Invalid character" or "Extra characters after interpolat
 
 The `code-server.tf` template automatically clones Gerrit repositories and cherry-picks patchsets when workspaces are created from Gerrit changes. This feature uses rich parameters passed from the coder-workspace plugin.
 
+**Configuration:**
+- Repository cloning is controlled by the `enableCloneRepository` option in the Gerrit plugin configuration (default: `true`)
+- When `enableCloneRepository = false`, git-related parameters (`GERRIT_GIT_SSH_URL` and `GERRIT_CHANGE_REF`) are not passed to the workspace, and the template will skip cloning
+- The template gracefully handles missing parameters and will skip cloning if they are not provided
+
 **How It Works:**
-1. When a workspace is created from a Gerrit change, the coder-workspace plugin passes rich parameters:
+1. When a workspace is created from a Gerrit change, the coder-workspace plugin passes rich parameters (if `enableCloneRepository = true`):
    - `GERRIT_GIT_SSH_URL`: SSH git repository URL
    - `GERRIT_CHANGE_REF`: Patchset ref (e.g., `refs/changes/45/12345/2`)
    - `REPO`: Repository name (used as directory name)
@@ -468,6 +478,8 @@ Use the values from step 2 in your Gerrit configuration:
   apiKey = ${secret:coder/session_token}  # Use CODER_SESSION_TOKEN
   templateId = YOUR_TEMPLATE_ID  # From API call
   organization = YOUR_ORGANIZATION_ID  # From API call
+  # Enable repository cloning (default: true)
+  enableCloneRepository = true
 ```
 
 ### 4. Test Integration
