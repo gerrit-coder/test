@@ -60,14 +60,6 @@ variable "coder_session_token" {
 
 # Rich parameters from coder-workspace plugin
 # These are accessed via data sources, not variables
-data "coder_parameter" "gerrit_git_http_url" {
-  name        = "GERRIT_GIT_HTTP_URL"
-  description = "Gerrit git repository HTTP URL"
-  type        = "string"
-  default     = ""
-  mutable     = false
-}
-
 data "coder_parameter" "gerrit_git_ssh_url" {
   name        = "GERRIT_GIT_SSH_URL"
   description = "Gerrit git repository SSH URL"
@@ -112,7 +104,6 @@ resource "coder_agent" "main" {
   arch           = "amd64"
   os             = "linux"
   env = {
-    GERRIT_GIT_HTTP_URL = data.coder_parameter.gerrit_git_http_url.value
     GERRIT_GIT_SSH_URL  = data.coder_parameter.gerrit_git_ssh_url.value
     GERRIT_CHANGE_REF   = data.coder_parameter.gerrit_change_ref.value
     GERRIT_CHANGE       = data.coder_parameter.gerrit_change.value
@@ -125,7 +116,6 @@ resource "coder_agent" "main" {
 
     # Debug: Print environment variables for troubleshooting
     echo "=== Debug: Gerrit Environment Variables ==="
-    echo "GERRIT_GIT_HTTP_URL: $${GERRIT_GIT_HTTP_URL:-<not set>}"
     echo "GERRIT_GIT_SSH_URL: $${GERRIT_GIT_SSH_URL:-<not set>}"
     echo "GERRIT_CHANGE_REF: $${GERRIT_CHANGE_REF:-<not set>}"
     echo "GERRIT_CHANGE: $${GERRIT_CHANGE:-<not set>}"
@@ -158,19 +148,11 @@ resource "coder_agent" "main" {
     fi
     export GIT_ASKPASS=""
 
-    # Clone Gerrit repository and cherry-pick patchset if parameters are provided
+    # Clone Gerrit repository and cherry-pick patchset if SSH URL is provided
     # These environment variables are passed as rich parameters from the coder-workspace plugin
-    if [ -n "$${GERRIT_GIT_HTTP_URL}" ] || [ -n "$${GERRIT_GIT_SSH_URL}" ]; then
+    if [ -n "$${GERRIT_GIT_SSH_URL}" ]; then
       REPO_DIR="$${REPO:-gerrit-repo}"
-
-      # Prefer SSH URL if available (doesn't require authentication)
-      if [ -n "$${GERRIT_GIT_SSH_URL}" ]; then
-        GIT_URL="$${GERRIT_GIT_SSH_URL}"
-        echo "Using SSH URL for cloning (no authentication required)"
-      else
-        GIT_URL="$${GERRIT_GIT_HTTP_URL}"
-        echo "Using HTTP URL for cloning"
-      fi
+      GIT_URL="$${GERRIT_GIT_SSH_URL}"
 
       # Construct changeRef if we have change and patchset but changeRef is missing
       if [ -z "$${GERRIT_CHANGE_REF}" ] && [ -n "$${GERRIT_CHANGE}" ] && [ -n "$${GERRIT_PATCHSET}" ]; then
@@ -187,7 +169,7 @@ resource "coder_agent" "main" {
         export GERRIT_CHANGE_REF
       fi
 
-      echo "Cloning Gerrit repository from $GIT_URL..."
+      echo "Cloning Gerrit repository from $GIT_URL (SSH)..."
 
       # Check if repository already exists
       if [ -d "$REPO_DIR" ] && [ -d "$REPO_DIR/.git" ]; then
@@ -216,23 +198,11 @@ resource "coder_agent" "main" {
           fi
         fi
       else
-        # Clone the repository
-        # For HTTP URLs, configure git to skip authentication prompts
-        if echo "$GIT_URL" | grep -q "^http"; then
-          # Configure git credential helper to store or cache credentials
-          # Use empty helper to disable askpass, or configure .netrc if available
-          GIT_CREDENTIAL_HELPER=""
-          if [ -f "$HOME/.netrc" ]; then
-            echo "Using .netrc for authentication"
-          else
-            echo "Warning: No .netrc found. HTTP cloning may require manual authentication."
-            echo "Consider using SSH URL or configuring git credentials."
-          fi
-        fi
-
+        # Clone the repository via SSH
+        echo "Cloning repository from $GIT_URL (SSH)..."
         git clone "$GIT_URL" "$REPO_DIR" || {
           echo "Error: Failed to clone repository"
-          echo "If using HTTP URL, you may need to configure git credentials or use SSH URL"
+          echo "Ensure SSH keys are configured for Gerrit access."
           exit 1
         }
 
@@ -309,7 +279,6 @@ resource "docker_container" "workspace" {
     "CODER_PORT=${var.coder_port}",
     "CODER_SESSION_TOKEN=${var.coder_session_token}",
     # Gerrit rich parameters from coder-workspace plugin
-    "GERRIT_GIT_HTTP_URL=${data.coder_parameter.gerrit_git_http_url.value}",
     "GERRIT_GIT_SSH_URL=${data.coder_parameter.gerrit_git_ssh_url.value}",
     "GERRIT_CHANGE_REF=${data.coder_parameter.gerrit_change_ref.value}",
     "GERRIT_CHANGE=${data.coder_parameter.gerrit_change.value}",

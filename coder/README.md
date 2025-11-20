@@ -171,9 +171,10 @@ The `code-server.tf` file includes:
 - `gerrit_url` - Uses `GERRIT_URL` from environment
 
 **Rich Parameters (via `data "coder_parameter"`):**
-- `GERRIT_GIT_HTTP_URL`, `GERRIT_GIT_SSH_URL`, `GERRIT_CHANGE_REF`, `GERRIT_CHANGE`, `GERRIT_PATCHSET`, `REPO` - Rich parameters from coder-workspace plugin (automatically passed when workspace is created from Gerrit change)
+- `GERRIT_GIT_SSH_URL`, `GERRIT_CHANGE_REF`, `GERRIT_CHANGE`, `GERRIT_PATCHSET`, `REPO` - Rich parameters from coder-workspace plugin (automatically passed when workspace is created from Gerrit change)
 - These are accessed via `data "coder_parameter"` data sources, not Terraform variables
 - Coder automatically populates these data sources with values from the rich parameters sent by the plugin
+- **Note:** The plugin only supports SSH cloning. Ensure SSH keys are configured in your workspace for Gerrit access.
 
 **Important: Terraform Interpolation Escaping**
 
@@ -204,7 +205,7 @@ The `code-server.tf` template automatically clones Gerrit repositories and cherr
 
 **How It Works:**
 1. When a workspace is created from a Gerrit change, the coder-workspace plugin passes rich parameters:
-   - `GERRIT_GIT_HTTP_URL` or `GERRIT_GIT_SSH_URL`: Git repository URL
+   - `GERRIT_GIT_SSH_URL`: SSH git repository URL
    - `GERRIT_CHANGE_REF`: Patchset ref (e.g., `refs/changes/45/12345/2`)
    - `REPO`: Repository name (used as directory name)
    - `GERRIT_CHANGE` and `GERRIT_PATCHSET`: Change and patchset numbers
@@ -217,26 +218,30 @@ The `code-server.tf` template automatically clones Gerrit repositories and cherr
 
 3. The startup script in `code-server.tf` automatically:
    - Configures git to disable Coder's askpass (prevents authentication conflicts)
-   - Prefers SSH URLs over HTTP URLs when both are available (SSH doesn't require authentication)
    - Installs git if not already present
    - Auto-constructs `GERRIT_CHANGE_REF` from `GERRIT_CHANGE` and `GERRIT_PATCHSET` if missing
-   - Clones the repository using the provided git URL
+   - Clones the repository using SSH URL
    - Fetches and cherry-picks the patchset
    - Handles existing repositories gracefully
    - Provides helpful error messages for conflicts
 
 **Features:**
 - ✅ Automatic git installation
-- ✅ Git authentication handling (disables Coder's askpass, prefers SSH URLs)
+- ✅ SSH-only cloning (requires SSH keys configured in workspace)
 - ✅ Auto-construction of `GERRIT_CHANGE_REF` from change and patchset numbers if missing
 - ✅ Smart repository handling (clones new, updates existing)
 - ✅ Automatic cherry-pick of patchsets
 - ✅ Conflict detection and helpful error messages
-- ✅ Works with both HTTP and SSH git URLs (SSH preferred when available)
 
 **Repository Location:**
 - Default directory: `gerrit-repo` (or uses `REPO` rich parameter value)
 - Located in workspace home directory: `/home/coder/gerrit-repo`
+
+**SSH Authentication:**
+
+The plugin uses SSH URLs for cloning. Ensure SSH keys are configured in your workspace for Gerrit access.
+
+**Note:** The workspace template only supports SSH cloning. Make sure SSH keys are set up in the workspace (e.g., `~/.ssh/id_rsa` or similar).
 
 ### 5. Template Deployment
 
@@ -272,9 +277,8 @@ docker exec -it coder-workspace-<name>-0 cat /tmp/code-server.log
 
 **Common Issues:**
 - **Authentication failures**:
-  - The script automatically disables Coder's askpass and prefers SSH URLs
-  - For HTTP URLs, configure git credentials (`.netrc` or git credential helper)
-  - For SSH URLs, ensure SSH keys are configured in the workspace
+  - Ensure SSH keys are configured in the workspace for Gerrit access
+  - Check that SSH keys are properly set up (e.g., `~/.ssh/id_rsa` or similar)
 - **Cherry-pick conflicts**: Resolve manually in the repository directory
 - **Missing rich parameters**:
   - Ensure the coder-workspace plugin is properly configured in Gerrit
