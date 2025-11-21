@@ -197,6 +197,12 @@ resource "coder_agent" "main" {
     git config --global credential.helper ""
     git config --global ssh.variant ssh || true
     git config --global core.sshCommand "" || true
+    # Set git user identity for commits/cherry-picks
+    # Use environment variables if provided, otherwise use defaults
+    GIT_USER_NAME="$${GIT_USER_NAME:-Coder Workspace}"
+    GIT_USER_EMAIL="$${GIT_USER_EMAIL:-coder@workspace.local}"
+    git config --global user.name "$${GIT_USER_NAME}" || true
+    git config --global user.email "$${GIT_USER_EMAIL}" || true
     # Disable Coder's askpass for Gerrit URLs
     if [ -n "$${GIT_ASKPASS}" ]; then
       echo "Unsetting GIT_ASKPASS=$${GIT_ASKPASS}"

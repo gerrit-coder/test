@@ -63,6 +63,8 @@ Configure the test environment using these environment variables (set in `.env` 
 | `GERRIT_SSH_KEY_PATH` | Path to SSH private key file for Gerrit access (auto-generated if not set) | `~/.ssh/gerrit_workspace_ed25519` |
 | `GERRIT_SSH_PRIVATE_KEY` | Plain-text SSH private key material (alternative to `GERRIT_SSH_KEY_PATH`) | *(optional)* |
 | `GERRIT_SSH_PRIVATE_KEY_B64` | Base64-encoded SSH private key material (alternative to `GERRIT_SSH_KEY_PATH`) | *(optional)* |
+| `GIT_USER_NAME` | Git user name for commits/cherry-picks | `Coder Workspace` |
+| `GIT_USER_EMAIL` | Git user email for commits/cherry-picks | `coder@workspace.local` |
 
 ### Example `.env` file:
 ```bash
@@ -84,6 +86,10 @@ CODER_SESSION_TOKEN="your-coder-session-token"
 # GERRIT_SSH_KEY_PATH="~/.ssh/gerrit_workspace_ed25519"
 # Or provide the key directly:
 # GERRIT_SSH_PRIVATE_KEY_B64="base64-encoded-private-key"
+
+# Git User Configuration (optional - defaults used if not set)
+# GIT_USER_NAME="Your Name"
+# GIT_USER_EMAIL="your.email@example.com"
 ```
 
 ## 🔧 Gerrit Plugin Configuration
@@ -192,6 +198,11 @@ The `code-server.tf` file includes:
 - `gerrit_ssh_private_key` *(optional, sensitive)* - Plain-text private key material written to `~/.ssh/id_gerrit` inside the workspace (ideal when wiring a Coder secret into the template)
 - `gerrit_ssh_private_key_b64` *(optional, sensitive)* - Base64-encoded private key material, decoded into `~/.ssh/id_gerrit`. Takes precedence over the plain-text variant when both are set.
 
+**Git Configuration:**
+- The startup script automatically configures git user identity (name and email) required for commits and cherry-picks
+- Default values: `user.name = "Coder Workspace"`, `user.email = "coder@workspace.local"`
+- Can be customized via `GIT_USER_NAME` and `GIT_USER_EMAIL` environment variables (set in Terraform template or container configuration)
+
 **Rich Parameters (via `data "coder_parameter"`):**
 - `GERRIT_GIT_SSH_URL`, `GERRIT_CHANGE_REF`, `GERRIT_CHANGE`, `GERRIT_PATCHSET`, `REPO` - Rich parameters from coder-workspace plugin (automatically passed when workspace is created from Gerrit change)
 - `GERRIT_SSH_USERNAME` - Optional parameter to explicitly set the SSH username used when cloning (helpful when Gerrit accounts differ from the username embedded in the SSH URL)
@@ -247,6 +258,7 @@ The `code-server.tf` template automatically clones Gerrit repositories and cherr
 
 3. The startup script in `code-server.tf` automatically:
    - Configures git to disable Coder's askpass (prevents authentication conflicts)
+   - Sets git user identity (name and email) required for commits/cherry-picks
    - Installs git if not already present
    - Auto-constructs `GERRIT_CHANGE_REF` from `GERRIT_CHANGE` and `GERRIT_PATCHSET` if missing
    - Clones the repository using SSH URL
@@ -256,6 +268,7 @@ The `code-server.tf` template automatically clones Gerrit repositories and cherr
 
 **Features:**
 - ✅ Automatic git installation
+- ✅ Automatic git user identity configuration (required for cherry-picks)
 - ✅ SSH-only cloning (requires SSH keys configured in workspace)
 - ✅ Auto-construction of `GERRIT_CHANGE_REF` from change and patchset numbers if missing
 - ✅ Smart repository handling (clones new, updates existing)
@@ -350,6 +363,10 @@ docker exec -it coder-workspace-<name>-0 cat /tmp/code-server.log
   - If using manual key setup, ensure SSH keys are configured in the workspace for Gerrit access
   - Check that SSH keys are properly set up (e.g., `~/.ssh/id_rsa` or similar)
   - Verify the key is added to the correct Gerrit user account (matching `GERRIT_SSH_USERNAME` or the username in the SSH URL)
+- **Git user identity errors** (e.g., "fatal: empty ident name"):
+  - The template automatically configures git user.name and user.email with defaults (`Coder Workspace` / `coder@workspace.local`)
+  - To customize, set `GIT_USER_NAME` and `GIT_USER_EMAIL` environment variables in the Terraform template
+  - These are required for git operations like cherry-pick that create commits
 - **Cherry-pick conflicts**: Resolve manually in the repository directory
 - **Missing rich parameters**:
   - Ensure the coder-workspace plugin is properly configured in Gerrit
