@@ -18,10 +18,23 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
+# Preserve environment variables that may have been set by run.sh
+# (like GERRIT_SSH_PRIVATE_KEY_B64) before loading .env file
+PRESERVED_SSH_KEY_B64="${GERRIT_SSH_PRIVATE_KEY_B64:-}"
+PRESERVED_SSH_KEY="${GERRIT_SSH_PRIVATE_KEY:-}"
+
 # Load environment variables from .env
 set -a
 source "$ENV_FILE"
 set +a
+
+# Restore preserved variables if they were set and not in .env
+if [ -n "$${PRESERVED_SSH_KEY_B64}" ] && [ -z "$${GERRIT_SSH_PRIVATE_KEY_B64:-}" ]; then
+  export GERRIT_SSH_PRIVATE_KEY_B64="$${PRESERVED_SSH_KEY_B64}"
+fi
+if [ -n "$${PRESERVED_SSH_KEY}" ] && [ -z "$${GERRIT_SSH_PRIVATE_KEY:-}" ]; then
+  export GERRIT_SSH_PRIVATE_KEY="$${PRESERVED_SSH_KEY}"
+fi
 
 # Create terraform.tfvars file
 cat > "$TFVARS_FILE" << EOF
@@ -42,6 +55,7 @@ EOF
 
 # Append optional Gerrit SSH key material if provided
 if [ -n "${GERRIT_SSH_PRIVATE_KEY:-}" ]; then
+    echo "   GERRIT_SSH_PRIVATE_KEY: <set, adding to terraform.tfvars>"
     {
         echo ""
         echo "gerrit_ssh_private_key = <<EOKEY"
@@ -49,10 +63,14 @@ if [ -n "${GERRIT_SSH_PRIVATE_KEY:-}" ]; then
         echo "EOKEY"
     } >> "$TFVARS_FILE"
 elif [ -n "${GERRIT_SSH_PRIVATE_KEY_B64:-}" ]; then
+    KEY_LEN=$(printf '%s' "${GERRIT_SSH_PRIVATE_KEY_B64}" | wc -c)
+    echo "   GERRIT_SSH_PRIVATE_KEY_B64: <set, length=${KEY_LEN} bytes, adding to terraform.tfvars>"
     {
         echo ""
         printf 'gerrit_ssh_private_key_b64 = "%s"\n' "${GERRIT_SSH_PRIVATE_KEY_B64}"
     } >> "$TFVARS_FILE"
+else
+    echo "   GERRIT_SSH_PRIVATE_KEY(_B64): <not set>"
 fi
 
 echo "✅ terraform.tfvars created successfully!"
@@ -61,6 +79,11 @@ echo "   GERRIT_URL: ${GERRIT_URL:-http://127.0.0.1:8080}"
 echo "   CODER_PORT: ${CODER_PORT:-3000}"
 echo "   CODER_ACCESS_URL: ${CODER_ACCESS_URL:-http://127.0.0.1:3000}"
 echo "   CODER_SESSION_TOKEN: ${CODER_SESSION_TOKEN:-not set}"
+if [ -n "${GERRIT_SSH_PRIVATE_KEY_B64:-}" ] || [ -n "${GERRIT_SSH_PRIVATE_KEY:-}" ]; then
+  echo "   SSH Key: ✅ Included (workspace will use persistent key)"
+else
+  echo "   SSH Key: ⚠️  Not provided (workspace will generate temporary key)"
+fi
 echo ""
 echo "🚀 Next steps:"
 echo "   1. Run: terraform init"

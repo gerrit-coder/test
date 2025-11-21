@@ -147,6 +147,16 @@ resource "coder_agent" "main" {
     echo "GERRIT_PATCHSET: $${GERRIT_PATCHSET:-<not set>}"
     echo "GERRIT_SSH_USERNAME: $${GERRIT_SSH_USERNAME:-<not set>}"
     echo "REPO: $${REPO:-<not set>}"
+    if [ -n "$${GERRIT_SSH_PRIVATE_KEY_B64:-}" ]; then
+      echo "GERRIT_SSH_PRIVATE_KEY_B64: <set, length=$$(printf '%s' "$${GERRIT_SSH_PRIVATE_KEY_B64}" | wc -c) bytes>"
+    else
+      echo "GERRIT_SSH_PRIVATE_KEY_B64: <not set>"
+    fi
+    if [ -n "$${GERRIT_SSH_PRIVATE_KEY:-}" ]; then
+      echo "GERRIT_SSH_PRIVATE_KEY: <set, length=$$(printf '%s' "$${GERRIT_SSH_PRIVATE_KEY}" | wc -c) bytes>"
+    else
+      echo "GERRIT_SSH_PRIVATE_KEY: <not set>"
+    fi
     echo "============================================"
 
     # Install code-server if not already installed
@@ -322,24 +332,38 @@ EOF
       # Determine identity file (override via GERRIT_SSH_IDENTITY if provided)
       SSH_IDENTITY="$(sanitize_placeholder "$${GERRIT_SSH_IDENTITY:-}")"
 
+      # Check for injected private key material (from Terraform variables)
       if [ -z "$${SSH_IDENTITY}" ] && [ -n "$${GERRIT_SSH_PRIVATE_KEY_B64}" ]; then
-        echo "Decoding GERRIT_SSH_PRIVATE_KEY_B64 into ~/.ssh/id_gerrit"
+        echo "Found GERRIT_SSH_PRIVATE_KEY_B64, decoding into ~/.ssh/id_gerrit"
         DEST="/home/coder/.ssh/id_gerrit"
-        if printf '%s' "$${GERRIT_SSH_PRIVATE_KEY_B64}" | base64 -d > "$${DEST}"; then
+        umask 077
+        if printf '%s' "$${GERRIT_SSH_PRIVATE_KEY_B64}" | base64 -d > "$${DEST}" 2>/dev/null; then
           chmod 600 "$${DEST}"
-          SSH_IDENTITY="$${DEST}"
+          if [ -f "$${DEST}" ] && [ -s "$${DEST}" ]; then
+            SSH_IDENTITY="$${DEST}"
+            echo "Successfully decoded and wrote SSH key to $${SSH_IDENTITY}"
+          else
+            echo "Warning: Decoded key file is empty or missing, will try other sources"
+            rm -f "$${DEST}"
+          fi
         else
-          echo "Error: Failed to decode GERRIT_SSH_PRIVATE_KEY_B64"
+          echo "Warning: Failed to decode GERRIT_SSH_PRIVATE_KEY_B64, will try other sources"
         fi
       fi
 
       if [ -z "$${SSH_IDENTITY}" ] && [ -n "$${GERRIT_SSH_PRIVATE_KEY}" ]; then
-        echo "Writing inline GERRIT_SSH_PRIVATE_KEY into ~/.ssh/id_gerrit"
+        echo "Found GERRIT_SSH_PRIVATE_KEY, writing into ~/.ssh/id_gerrit"
         DEST="/home/coder/.ssh/id_gerrit"
         umask 077
         printf '%s\n' "$${GERRIT_SSH_PRIVATE_KEY}" > "$${DEST}"
         chmod 600 "$${DEST}"
-        SSH_IDENTITY="$${DEST}"
+        if [ -f "$${DEST}" ] && [ -s "$${DEST}" ]; then
+          SSH_IDENTITY="$${DEST}"
+          echo "Successfully wrote SSH key to $${SSH_IDENTITY}"
+        else
+          echo "Warning: Written key file is empty or missing, will try other sources"
+          rm -f "$${DEST}"
+        fi
       fi
 
       if [ -z "$${SSH_IDENTITY}" ]; then
@@ -361,7 +385,11 @@ EOF
           SSH_IDENTITY="$${AUTO_SSH_KEY}"
           echo "Reusing previously generated SSH key: $${SSH_IDENTITY}"
         else
-          echo "No SSH identity found. Generating a new ed25519 key at $${AUTO_SSH_KEY}..."
+          echo "No SSH identity found and no key provided via GERRIT_SSH_PRIVATE_KEY(_B64)."
+          echo "Generating a new ed25519 key at $${AUTO_SSH_KEY}..."
+          echo "Note: This key will be lost on workspace restart. For persistent keys, use run.sh"
+          echo "      which automatically manages SSH keys, or set gerrit_ssh_private_key(_b64)"
+          echo "      Terraform variables in your template configuration."
           if ssh-keygen -t ed25519 -N "" -f "$${AUTO_SSH_KEY}" >/tmp/ssh-keygen.log 2>&1; then
             SSH_IDENTITY="$${AUTO_SSH_KEY}"
             chmod 600 "$${SSH_IDENTITY}"

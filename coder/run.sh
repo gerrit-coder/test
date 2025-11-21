@@ -35,8 +35,8 @@ ensure_gerrit_ssh_key() {
     fi
 
     export GERRIT_SSH_KEY_PATH="$key_path"
-    export GERRIT_SSH_PRIVATE_KEY_B64
     GERRIT_SSH_PRIVATE_KEY_B64="$(base64 < "$key_path" | tr -d '\n')"
+    export GERRIT_SSH_PRIVATE_KEY_B64
     echo "✅ Exported GERRIT_SSH_PRIVATE_KEY_B64 for Terraform template ingestion."
 }
 
