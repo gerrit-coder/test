@@ -159,12 +159,12 @@ resource "coder_agent" "main" {
     echo "GERRIT_SSH_USERNAME: $${GERRIT_SSH_USERNAME:-<not set>}"
     echo "REPO: $${REPO:-<not set>}"
     if [ -n "$${GERRIT_SSH_PRIVATE_KEY_B64:-}" ]; then
-      echo "GERRIT_SSH_PRIVATE_KEY_B64: <set, length=$$(printf '%s' "$${GERRIT_SSH_PRIVATE_KEY_B64}" | wc -c) bytes>"
+      echo "GERRIT_SSH_PRIVATE_KEY_B64: <set>"
     else
       echo "GERRIT_SSH_PRIVATE_KEY_B64: <not set>"
     fi
     if [ -n "$${GERRIT_SSH_PRIVATE_KEY:-}" ]; then
-      echo "GERRIT_SSH_PRIVATE_KEY: <set, length=$$(printf '%s' "$${GERRIT_SSH_PRIVATE_KEY}" | wc -c) bytes>"
+      echo "GERRIT_SSH_PRIVATE_KEY: <set>"
     else
       echo "GERRIT_SSH_PRIVATE_KEY: <not set>"
     fi
@@ -350,14 +350,25 @@ EOF
         CODER_TOKEN="$${CODER_SESSION_TOKEN:-$${CODER_AGENT_TOKEN:-}}"
         if [ -n "$${CODER_TOKEN:-}" ]; then
           echo "Attempting to read SSH key from Coder secret 'gerrit_ssh_private_key_b64'..."
-          SECRET_VALUE="$$(curl -s -f -H "Coder-Session-Token: $${CODER_TOKEN}" \
-            "$${CODER_API_URL}/api/v2/secrets/gerrit_ssh_private_key_b64" 2>/dev/null | \
-            grep -o '"value":"[^"]*' | cut -d'"' -f4 || true)"
-          if [ -n "$${SECRET_VALUE:-}" ]; then
-            export GERRIT_SSH_PRIVATE_KEY_B64="$${SECRET_VALUE}"
-            echo "Successfully retrieved SSH key from Coder secret"
+          # Use a temporary file to avoid quote issues with command substitution
+          TMP_RESPONSE="/tmp/coder_secret_response.json"
+          if curl -s -f -H "Coder-Session-Token: $${CODER_TOKEN}" \
+            "$${CODER_API_URL}/api/v2/secrets/gerrit_ssh_private_key_b64" > "$${TMP_RESPONSE}" 2>/dev/null; then
+            # Try jq first, fallback to grep/sed
+            if command -v jq >/dev/null 2>&1; then
+              SECRET_VALUE="$$(jq -r '.value // empty' "$${TMP_RESPONSE}" 2>/dev/null || true)"
+            else
+              SECRET_VALUE="$$(grep -o '\"value\":\"[^\"]*' "$${TMP_RESPONSE}" 2>/dev/null | sed 's/\"value\":\"//' | sed 's/\"\$//' || true)"
+            fi
+            rm -f "$${TMP_RESPONSE}"
+            if [ -n "$${SECRET_VALUE:-}" ] && [ "$${SECRET_VALUE}" != "null" ]; then
+              export GERRIT_SSH_PRIVATE_KEY_B64="$${SECRET_VALUE}"
+              echo "Successfully retrieved SSH key from Coder secret"
+            else
+              echo "Coder secret 'gerrit_ssh_private_key_b64' not found or not accessible"
+            fi
           else
-            echo "Coder secret 'gerrit_ssh_private_key_b64' not found or not accessible"
+            echo "Failed to fetch Coder secret (API request failed)"
           fi
         fi
       fi
