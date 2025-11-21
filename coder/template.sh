@@ -33,8 +33,12 @@ echo "🚀 Deploying template '$CODER_TEMPLATE_NAME' to Coder..."
 # Prepare a clean template directory in the container
 docker exec coder-server rm -rf /tmp/template && docker exec coder-server mkdir -p /tmp/template
 
-# Copy only the needed template file(s) into the clean directory
+# Copy template file and terraform.tfvars (if exists) into the clean directory
 docker cp "$SCRIPT_DIR/code-server.tf" coder-server:/tmp/template/
+if [ -f "$SCRIPT_DIR/terraform.tfvars" ]; then
+    docker cp "$SCRIPT_DIR/terraform.tfvars" coder-server:/tmp/template/
+    echo "📋 Included terraform.tfvars (for variable defaults)"
+fi
 
 # Set coder CLI path to /opt/coder (as found in container)
 CODER_CLI="/opt/coder"

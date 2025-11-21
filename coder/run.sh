@@ -39,7 +39,8 @@ ensure_gerrit_ssh_key() {
     export GERRIT_SSH_PRIVATE_KEY_B64
     echo "✅ Exported GERRIT_SSH_PRIVATE_KEY_B64 for Terraform template ingestion."
 
-    # Note: Coder secret will be created after Coder server is ready (see below)
+    # Note: The SSH key will be written to terraform.tfvars for template validation.
+    # Coder secret is also created for reference, but template uses Terraform variable.
 }
 
 ensure_gerrit_ssh_key

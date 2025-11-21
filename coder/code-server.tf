@@ -72,17 +72,16 @@ variable "gerrit_ssh_private_key_b64" {
   sensitive   = true
 }
 
-# Try to read SSH key from Coder secret as fallback
-# The secret is created by run.sh after Coder server starts
-data "coder_secret" "gerrit_ssh_private_key_b64" {
-  name = "gerrit_ssh_private_key_b64"
-}
-
-# Combine variable and secret, preferring variable if set
-# Use try() to gracefully handle case where secret doesn't exist yet
-locals {
-  gerrit_ssh_private_key_b64_final = var.gerrit_ssh_private_key_b64 != "" ? var.gerrit_ssh_private_key_b64 : try(data.coder_secret.gerrit_ssh_private_key_b64.value, "")
-}
+# Note: SSH key can be provided via:
+# 1. gerrit_ssh_private_key_b64 Terraform variable (set per-workspace)
+# 2. Coder secret 'gerrit_ssh_private_key_b64' (read by startup script via API)
+#
+# run.sh automatically:
+# - Sets the variable in terraform.tfvars (for template validation)
+# - Creates Coder secret 'gerrit_ssh_private_key_b64' (for runtime access)
+#
+# The startup script will attempt to read from the Coder secret if the
+# variable is empty, ensuring persistent keys work across workspace restarts.
 
 # Rich parameters from coder-workspace plugin
 # These are accessed via data sources, not variables
@@ -145,7 +144,7 @@ resource "coder_agent" "main" {
     GERRIT_SSH_USERNAME = data.coder_parameter.gerrit_ssh_username.value
     REPO                = data.coder_parameter.repo.value
     GERRIT_SSH_PRIVATE_KEY     = var.gerrit_ssh_private_key
-    GERRIT_SSH_PRIVATE_KEY_B64 = local.gerrit_ssh_private_key_b64_final
+    GERRIT_SSH_PRIVATE_KEY_B64 = var.gerrit_ssh_private_key_b64
   }
   startup_script = <<-EOT
     #!/bin/sh
@@ -344,7 +343,26 @@ EOF
       # Determine identity file (override via GERRIT_SSH_IDENTITY if provided)
       SSH_IDENTITY="$(sanitize_placeholder "$${GERRIT_SSH_IDENTITY:-}")"
 
-      # Check for injected private key material (from Terraform variables)
+      # If GERRIT_SSH_PRIVATE_KEY_B64 is empty, try to read from Coder secret via API
+      if [ -z "$${GERRIT_SSH_PRIVATE_KEY_B64:-}" ] && [ -n "$${CODER_AGENT_URL:-}" ] && command -v curl >/dev/null 2>&1; then
+        CODER_API_URL="$${CODER_AGENT_URL%/}"
+        # Try to get secret from Coder API (requires CODER_SESSION_TOKEN or agent token)
+        CODER_TOKEN="$${CODER_SESSION_TOKEN:-$${CODER_AGENT_TOKEN:-}}"
+        if [ -n "$${CODER_TOKEN:-}" ]; then
+          echo "Attempting to read SSH key from Coder secret 'gerrit_ssh_private_key_b64'..."
+          SECRET_VALUE="$$(curl -s -f -H "Coder-Session-Token: $${CODER_TOKEN}" \
+            "$${CODER_API_URL}/api/v2/secrets/gerrit_ssh_private_key_b64" 2>/dev/null | \
+            grep -o '"value":"[^"]*' | cut -d'"' -f4 || true)"
+          if [ -n "$${SECRET_VALUE:-}" ]; then
+            export GERRIT_SSH_PRIVATE_KEY_B64="$${SECRET_VALUE}"
+            echo "Successfully retrieved SSH key from Coder secret"
+          else
+            echo "Coder secret 'gerrit_ssh_private_key_b64' not found or not accessible"
+          fi
+        fi
+      fi
+
+      # Check for injected private key material (from Terraform variables or Coder secret)
       if [ -z "$${SSH_IDENTITY}" ] && [ -n "$${GERRIT_SSH_PRIVATE_KEY_B64}" ]; then
         echo "Found GERRIT_SSH_PRIVATE_KEY_B64, decoding into ~/.ssh/id_gerrit"
         DEST="/home/coder/.ssh/id_gerrit"
@@ -594,7 +612,7 @@ resource "docker_container" "workspace" {
     "GERRIT_SSH_USERNAME=${data.coder_parameter.gerrit_ssh_username.value}",
     "REPO=${data.coder_parameter.repo.value}",
     "GERRIT_SSH_PRIVATE_KEY=${var.gerrit_ssh_private_key}",
-    "GERRIT_SSH_PRIVATE_KEY_B64=${local.gerrit_ssh_private_key_b64_final}"
+    "GERRIT_SSH_PRIVATE_KEY_B64=${var.gerrit_ssh_private_key_b64}"
   ]
 
   # Bootstrap and run the Coder agent; it will execute startup_script above
