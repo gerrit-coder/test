@@ -8,8 +8,16 @@ This directory contains scripts and configuration files to set up a complete tes
 ```bash
 # Run complete setup (handles everything automatically)
 # It will create .env from env.example and prompt you to edit it
+# It also automatically generates/manages SSH keys for Gerrit access
 ./run.sh
 ```
+
+**SSH Key Management:**
+- On first run, `run.sh` automatically generates an SSH key at `~/.ssh/gerrit_workspace_ed25519` (or the path specified by `GERRIT_SSH_KEY_PATH`)
+- The public key is displayed in the output - **copy it and add it to Gerrit** (Settings → SSH Public Keys)
+- On subsequent runs, the same key is reused, ensuring consistent authentication
+- The private key is automatically base64-encoded and passed to the Terraform template
+- Alternatively, you can set `GERRIT_SSH_PRIVATE_KEY` or `GERRIT_SSH_PRIVATE_KEY_B64` in your `.env` file to use an existing key
 
 ### Option 2: Terraform-Based Setup
 ```bash
@@ -51,6 +59,10 @@ Configure the test environment using these environment variables (set in `.env` 
 | `CODER_URL` | Internal Coder URL for CLI | `http://127.0.0.1:3000` |
 | `CODER_TEMPLATE_NAME` | Template name | `vscode-web` |
 | `CODER_SESSION_TOKEN` | Coder API token for authentication | *(required)* |
+| `GERRIT_SSH_USERNAME` | Preferred SSH username (overrides username parsed from `GERRIT_GIT_SSH_URL`) | *(optional)* |
+| `GERRIT_SSH_KEY_PATH` | Path to SSH private key file for Gerrit access (auto-generated if not set) | `~/.ssh/gerrit_workspace_ed25519` |
+| `GERRIT_SSH_PRIVATE_KEY` | Plain-text SSH private key material (alternative to `GERRIT_SSH_KEY_PATH`) | *(optional)* |
+| `GERRIT_SSH_PRIVATE_KEY_B64` | Base64-encoded SSH private key material (alternative to `GERRIT_SSH_KEY_PATH`) | *(optional)* |
 
 ### Example `.env` file:
 ```bash
@@ -67,6 +79,11 @@ CODER_TEMPLATE_NAME="vscode-web"
 
 # Authentication
 CODER_SESSION_TOKEN="your-coder-session-token"
+
+# SSH Key Configuration (optional - auto-generated if not set)
+# GERRIT_SSH_KEY_PATH="~/.ssh/gerrit_workspace_ed25519"
+# Or provide the key directly:
+# GERRIT_SSH_PRIVATE_KEY_B64="base64-encoded-private-key"
 ```
 
 ## 🔧 Gerrit Plugin Configuration
@@ -95,7 +112,7 @@ Configure your Gerrit plugin with the values from your environment:
 
 | Script | Description |
 |--------|-------------|
-| **`run.sh`** | Complete automated setup (recommended) |
+| **`run.sh`** | Complete automated setup (recommended) - includes automatic SSH key generation and management |
 | **`setup-terraform.sh`** | Terraform-based setup |
 | **`load-env.sh`** | Loads environment variables from .env file |
 
@@ -104,7 +121,7 @@ Configure your Gerrit plugin with the values from your environment:
 | Script | Description |
 |--------|-------------|
 | **`apply-env-to-yaml.sh`** | Applies environment variables to YAML files |
-| **`env-to-terraform.sh`** | Converts .env to terraform.tfvars |
+| **`env-to-terraform.sh`** | Converts .env to terraform.tfvars (includes SSH key handling) |
 | **`coder.sh`** | Starts Coder server with Docker |
 | **`template.sh`** | Deploys the VS Code template to Coder |
 
@@ -172,9 +189,12 @@ The `code-server.tf` file includes:
 **Terraform Variables:**
 - `coder_access_url` - Uses `CODER_ACCESS_URL` from environment
 - `gerrit_url` - Uses `GERRIT_URL` from environment
+- `gerrit_ssh_private_key` *(optional, sensitive)* - Plain-text private key material written to `~/.ssh/id_gerrit` inside the workspace (ideal when wiring a Coder secret into the template)
+- `gerrit_ssh_private_key_b64` *(optional, sensitive)* - Base64-encoded private key material, decoded into `~/.ssh/id_gerrit`. Takes precedence over the plain-text variant when both are set.
 
 **Rich Parameters (via `data "coder_parameter"`):**
 - `GERRIT_GIT_SSH_URL`, `GERRIT_CHANGE_REF`, `GERRIT_CHANGE`, `GERRIT_PATCHSET`, `REPO` - Rich parameters from coder-workspace plugin (automatically passed when workspace is created from Gerrit change)
+- `GERRIT_SSH_USERNAME` - Optional parameter to explicitly set the SSH username used when cloning (helpful when Gerrit accounts differ from the username embedded in the SSH URL)
 - These are accessed via `data "coder_parameter"` data sources, not Terraform variables
 - Coder automatically populates these data sources with values from the rich parameters sent by the plugin
 - **Note:** Git-related parameters (`GERRIT_GIT_SSH_URL` and `GERRIT_CHANGE_REF`) are only included when `enableCloneRepository = true` (default) in the Gerrit plugin configuration. If disabled, these parameters will be empty and the template will skip cloning.
@@ -248,9 +268,48 @@ The `code-server.tf` template automatically clones Gerrit repositories and cherr
 
 **SSH Authentication:**
 
-The plugin uses SSH URLs for cloning. Ensure SSH keys are configured in your workspace for Gerrit access.
+The plugin uses SSH URLs for cloning. SSH keys are automatically managed by the setup scripts.
 
-**Note:** The workspace template only supports SSH cloning. Make sure SSH keys are set up in the workspace (e.g., `~/.ssh/id_rsa` or similar).
+**Automated SSH Key Management:**
+
+The `run.sh` script provides seamless SSH key management:
+
+1. **Automatic Key Generation**: On first run, if no SSH key is provided, `run.sh` generates a new ed25519 key at `~/.ssh/gerrit_workspace_ed25519` (or the path specified by `GERRIT_SSH_KEY_PATH`)
+
+2. **Key Reuse**: On subsequent runs, the same key is automatically reused, ensuring consistent authentication across workspace restarts
+
+3. **Public Key Display**: The public key is displayed in the output - simply copy it and add it to Gerrit (Settings → SSH Public Keys)
+
+4. **Automatic Integration**: The private key is automatically base64-encoded and passed to the Terraform template via `env-to-terraform.sh`, ensuring every workspace uses the same credentials
+
+5. **Manual Override**: You can override this by setting `GERRIT_SSH_PRIVATE_KEY` or `GERRIT_SSH_PRIVATE_KEY_B64` in your `.env` file to use an existing key
+
+**Workflow:**
+```bash
+# First run - generates key and shows public key
+./run.sh
+# Output: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
+# → Copy this key and add it to Gerrit
+
+# After adding key to Gerrit, subsequent runs reuse the same key
+./run.sh  # Uses existing key automatically
+```
+
+The workspace startup script now automatically:
+- Installs `openssh-client` (for `ssh-keyscan`) if it is missing
+- Parses `GERRIT_GIT_SSH_URL` (preferring a `python3` URL parser with a POSIX fallback) to extract the host/user/port
+- Adds or refreshes the host's public key in `/home/coder/.ssh/known_hosts` using `ssh-keyscan`
+- Deduplicates and locks down `known_hosts`
+- Rewrites `/home/coder/.ssh/config` with a managed `Host *` entry that pins the Gerrit hostname, port, user, and SSH identity. Host/port/user come from the SSH URL, but you can override them via `GERRIT_SSH_HOST`, `GERRIT_SSH_PORT`, and `GERRIT_SSH_USERNAME` (fallback user `admin`). Identity defaults to `~/.ssh/id_ed25519`/`id_rsa` if available, can be overridden with `GERRIT_SSH_IDENTITY`, or injected via the new `gerrit_ssh_private_key(_b64)` Terraform variables (surfaced to the startup script as `GERRIT_SSH_PRIVATE_KEY` / `_B64`).
+- Writes inline private key material (when provided) to `~/.ssh/id_gerrit` with strict permissions before configuring SSH.
+- When no key exists at all, auto-generates an ed25519 key at `~/.ssh/id_ed25519_coder`, prints the public key in the startup logs, and keeps the workspace running while skipping the git clone. After you paste the key into Gerrit, simply restart the workspace (or rerun the git commands manually) and the script will reuse the same key file, avoiding mismatched fingerprints.
+- **Best practice:** Use the automated SSH key management in `run.sh` (recommended) or supply a stable key via the `gerrit_ssh_private_key` (plain text) or `gerrit_ssh_private_key_b64` (base64) Terraform variables. The automated approach ensures consistent keys across all workspace restarts without manual intervention.
+- Forces git to use the system `ssh` binary via `GIT_SSH_COMMAND` (after unsetting any inherited `GIT_SSH`) instead of the `coder gitssh` helper so that standalone SSH keys work consistently in the workspace (the binary path is detected by running `command -v ssh` inside the container and logged).
+- Normalizes `git`'s SSH settings (`git config --global ssh.variant ssh` and clears `core.sshCommand`) to avoid the `ssh variant 'simple' does not support setting port` error.
+
+This allows Gerrit clones to proceed without manual host-key approval while still keeping the known-hosts file scoped to the Gerrit endpoint supplied by the plugin.
+
+**Note:** The workspace template only supports SSH cloning. Make sure SSH keys are set up in the workspace (e.g., `~/.ssh/id_rsa` or similar). If you prefer to pre-provision host keys (instead of relying on automatic discovery), you can mount or template your own `known_hosts`; the automatic step simply appends entries when they are missing.
 
 ### 5. Template Deployment
 
@@ -286,8 +345,11 @@ docker exec -it coder-workspace-<name>-0 cat /tmp/code-server.log
 
 **Common Issues:**
 - **Authentication failures**:
-  - Ensure SSH keys are configured in the workspace for Gerrit access
+  - If using `run.sh`, ensure you've added the displayed public key to Gerrit (Settings → SSH Public Keys)
+  - The automated key management ensures the same key is used across restarts - verify the key in Gerrit matches the one generated by `run.sh`
+  - If using manual key setup, ensure SSH keys are configured in the workspace for Gerrit access
   - Check that SSH keys are properly set up (e.g., `~/.ssh/id_rsa` or similar)
+  - Verify the key is added to the correct Gerrit user account (matching `GERRIT_SSH_USERNAME` or the username in the SSH URL)
 - **Cherry-pick conflicts**: Resolve manually in the repository directory
 - **Missing rich parameters**:
   - Ensure the coder-workspace plugin is properly configured in Gerrit
@@ -451,8 +513,16 @@ cp env.example .env
 # Edit .env with your values
 nano .env
 
-# Run complete setup
+# Run complete setup (automatically manages SSH keys)
 ./run.sh
+
+# On first run, copy the displayed SSH public key and add it to Gerrit:
+# 1. Go to Gerrit → Settings → SSH Public Keys
+# 2. Click "Add Key"
+# 3. Paste the public key shown in the output
+# 4. Save
+
+# Subsequent runs will automatically reuse the same key
 ```
 
 ### 2. Get Configuration Values

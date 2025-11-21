@@ -40,6 +40,21 @@ coder_port = "${CODER_PORT:-3000}"
 coder_session_token = "${CODER_SESSION_TOKEN:-}"
 EOF
 
+# Append optional Gerrit SSH key material if provided
+if [ -n "${GERRIT_SSH_PRIVATE_KEY:-}" ]; then
+    {
+        echo ""
+        echo "gerrit_ssh_private_key = <<EOKEY"
+        printf "%s\n" "${GERRIT_SSH_PRIVATE_KEY}"
+        echo "EOKEY"
+    } >> "$TFVARS_FILE"
+elif [ -n "${GERRIT_SSH_PRIVATE_KEY_B64:-}" ]; then
+    {
+        echo ""
+        printf 'gerrit_ssh_private_key_b64 = "%s"\n' "${GERRIT_SSH_PRIVATE_KEY_B64}"
+    } >> "$TFVARS_FILE"
+fi
+
 echo "✅ terraform.tfvars created successfully!"
 echo "📋 Generated variables:"
 echo "   GERRIT_URL: ${GERRIT_URL:-http://127.0.0.1:8080}"

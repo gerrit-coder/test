@@ -3,6 +3,45 @@
 ## Load environment variables
 source ./load-env.sh
 
+ensure_gerrit_ssh_key() {
+    if [ -n "${GERRIT_SSH_PRIVATE_KEY:-}" ] || [ -n "${GERRIT_SSH_PRIVATE_KEY_B64:-}" ]; then
+        echo "🔐 Using Gerrit SSH key from existing environment variables."
+        return
+    fi
+
+    local key_path="${GERRIT_SSH_KEY_PATH:-$HOME/.ssh/gerrit_workspace_ed25519}"
+    key_path="${key_path/#\~/$HOME}"
+    mkdir -p "$(dirname "$key_path")"
+
+    if [ ! -f "$key_path" ]; then
+        echo "🔐 Generating persistent Gerrit SSH key at $key_path..."
+        if ! ssh-keygen -t ed25519 -N "" -f "$key_path"; then
+            echo "❌ Failed to generate SSH key. Install openssh-client/ssh-keygen and retry." >&2
+            exit 1
+        fi
+        echo ""
+        echo "📋 Public key (add this to Gerrit → Settings → SSH Public Keys):"
+        cat "$key_path.pub"
+        echo ""
+        echo "   After the key is registered in Gerrit, rerun this script so the workspace template"
+        echo "   can reuse the same credentials."
+    else
+        echo "🔐 Reusing Gerrit SSH key at $key_path"
+    fi
+
+    if ! command -v base64 >/dev/null 2>&1; then
+        echo "❌ 'base64' command not found. Install coreutils (or equivalent) and retry." >&2
+        exit 1
+    fi
+
+    export GERRIT_SSH_KEY_PATH="$key_path"
+    export GERRIT_SSH_PRIVATE_KEY_B64
+    GERRIT_SSH_PRIVATE_KEY_B64="$(base64 < "$key_path" | tr -d '\n')"
+    echo "✅ Exported GERRIT_SSH_PRIVATE_KEY_B64 for Terraform template ingestion."
+}
+
+ensure_gerrit_ssh_key
+
 # Check if .env file exists, if not, create one from template
 if [ ! -f ".env" ]; then
     echo "📋 Creating .env file from env.example template..."
