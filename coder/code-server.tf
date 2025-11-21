@@ -72,6 +72,18 @@ variable "gerrit_ssh_private_key_b64" {
   sensitive   = true
 }
 
+# Try to read SSH key from Coder secret as fallback
+# The secret is created by run.sh after Coder server starts
+data "coder_secret" "gerrit_ssh_private_key_b64" {
+  name = "gerrit_ssh_private_key_b64"
+}
+
+# Combine variable and secret, preferring variable if set
+# Use try() to gracefully handle case where secret doesn't exist yet
+locals {
+  gerrit_ssh_private_key_b64_final = var.gerrit_ssh_private_key_b64 != "" ? var.gerrit_ssh_private_key_b64 : try(data.coder_secret.gerrit_ssh_private_key_b64.value, "")
+}
+
 # Rich parameters from coder-workspace plugin
 # These are accessed via data sources, not variables
 data "coder_parameter" "gerrit_git_ssh_url" {
@@ -133,7 +145,7 @@ resource "coder_agent" "main" {
     GERRIT_SSH_USERNAME = data.coder_parameter.gerrit_ssh_username.value
     REPO                = data.coder_parameter.repo.value
     GERRIT_SSH_PRIVATE_KEY     = var.gerrit_ssh_private_key
-    GERRIT_SSH_PRIVATE_KEY_B64 = var.gerrit_ssh_private_key_b64
+    GERRIT_SSH_PRIVATE_KEY_B64 = local.gerrit_ssh_private_key_b64_final
   }
   startup_script = <<-EOT
     #!/bin/sh
@@ -582,7 +594,7 @@ resource "docker_container" "workspace" {
     "GERRIT_SSH_USERNAME=${data.coder_parameter.gerrit_ssh_username.value}",
     "REPO=${data.coder_parameter.repo.value}",
     "GERRIT_SSH_PRIVATE_KEY=${var.gerrit_ssh_private_key}",
-    "GERRIT_SSH_PRIVATE_KEY_B64=${var.gerrit_ssh_private_key_b64}"
+    "GERRIT_SSH_PRIVATE_KEY_B64=${local.gerrit_ssh_private_key_b64_final}"
   ]
 
   # Bootstrap and run the Coder agent; it will execute startup_script above

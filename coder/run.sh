@@ -38,6 +38,8 @@ ensure_gerrit_ssh_key() {
     GERRIT_SSH_PRIVATE_KEY_B64="$(base64 < "$key_path" | tr -d '\n')"
     export GERRIT_SSH_PRIVATE_KEY_B64
     echo "✅ Exported GERRIT_SSH_PRIVATE_KEY_B64 for Terraform template ingestion."
+
+    # Note: Coder secret will be created after Coder server is ready (see below)
 }
 
 ensure_gerrit_ssh_key
@@ -85,6 +87,39 @@ while ! echo "$code" | grep -qE '^(200|401)$'; do
   sleep 2
   code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${CODER_PORT:-3000}/api/v2/templates")
 done
+
+# Step 4.5: Create Coder secret for SSH key (if Coder is ready and token is available)
+create_coder_secret() {
+    if [ -z "${CODER_SESSION_TOKEN:-}" ]; then
+        return 0
+    fi
+
+    if ! command -v docker >/dev/null 2>&1 || ! docker ps | grep -q coder-server; then
+        return 0
+    fi
+
+    CODER_CLI="/opt/coder"
+    if ! docker exec coder-server test -x "$CODER_CLI" 2>/dev/null; then
+        return 0
+    fi
+
+    if [ -z "${GERRIT_SSH_PRIVATE_KEY_B64:-}" ]; then
+        return 0
+    fi
+
+    echo "🔐 Creating/updating Coder secret 'gerrit_ssh_private_key_b64'..."
+    # Try to create, if it exists try to update
+    if docker exec -e CODER_SESSION_TOKEN="${CODER_SESSION_TOKEN}" coder-server sh -c \
+        "echo '$GERRIT_SSH_PRIVATE_KEY_B64' | $CODER_CLI secrets create gerrit_ssh_private_key_b64 - 2>/dev/null" || \
+       docker exec -e CODER_SESSION_TOKEN="${CODER_SESSION_TOKEN}" coder-server sh -c \
+        "echo '$GERRIT_SSH_PRIVATE_KEY_B64' | $CODER_CLI secrets update gerrit_ssh_private_key_b64 - 2>/dev/null"; then
+        echo "✅ Coder secret 'gerrit_ssh_private_key_b64' created/updated successfully."
+    else
+        echo "⚠️  Failed to create/update Coder secret (non-critical, will try terraform.tfvars)"
+    fi
+}
+
+create_coder_secret
 
 # Step 5: Deploy template to Coder
 echo "🏗️ Deploying template to Coder..."
